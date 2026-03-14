@@ -21,6 +21,7 @@
 #include "glib-mock.h"
 
 #include <windows.h>
+#include <psapi.h>
 
 /* {{{ _ReturnAddress implementation copied from:
  *
@@ -109,7 +110,7 @@ _g_mock_add_win32(gpointer func, const gchar *func_name, gpointer *out_real)
         }
     }
 
-  g_error ("No mock found for <%s> function");
+  g_error ("No mock found for <%s> function", func_name);
 
 out:
   g_free (modules);
