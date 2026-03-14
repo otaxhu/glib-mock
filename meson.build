@@ -5,7 +5,7 @@ pkg = import('pkgconfig')
 cc = meson.get_compiler('c')
 
 c_args = [
-  '-DG_LOG_DOMAIN=GLib-Mock',
+  '-DG_LOG_DOMAIN="GLib-Mock"',
 ]
 
 libs = []
