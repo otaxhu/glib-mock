@@ -90,7 +90,7 @@ _g_mock_add_win32(gpointer func, const gchar *func_name, gpointer *out_real)
 
   g_assert (EnumProcessModules (process, NULL, 0, &modules_size));
 
-  HMODULE *modules = g_new (HMODULE, modules_size);
+  HMODULE *modules = (HMODULE *) g_malloc (modules_size);
 
   g_assert (EnumProcessModules (process, modules, modules_size, &modules_size2));
   g_assert (modules_size == modules_size2);
