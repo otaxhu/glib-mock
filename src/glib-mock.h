@@ -22,20 +22,34 @@
 
 #include <glib-2.0/glib.h>
 
-#if defined(__linux__) || defined(__APPLE__)
+#if defined(G_OS_UNIX)
 #include <dlfcn.h>
 #endif
 
 G_BEGIN_DECLS
 
-#if defined(__linux__) || defined(__APPLE__)
+#if defined(G_OS_UNIX)
 
 #define g_mock_add(func_name) ((void)(func_name)) /* No-op */
 
 #define g_mock_add_with_real(func_name, out_real) \
-  ((void)(*(out_real) = dlsym (RTLD_NEXT, # func_name)))
+  G_STMT_START \
+  { \
+    void **_out_real = (void **)(out_real); \
+    if (_out_real) \
+      *_out_real = dlsym (RTLD_NEXT, # func_name); \
+  } \
+  G_STMT_END
 
-/* TODO: Win32 mocking using IAT hooking */
+#elif defined(G_OS_WIN32)
+
+G_NO_INLINE void
+_g_mock_add_win32 (gpointer func, const gchar *func_name, gpointer *out_real);
+
+#define g_mock_add(func_name) ((void)(func_name)) /* No-op */
+
+#define g_mock_add_with_real(func_name, out_real) \
+  _g_mock_add_win32 ((func_name), # func_name, (out_real))
 
 #else
 #message "This platform doesn't support mocks"

@@ -1,24 +1,82 @@
 project('glib-mock', 'c')
 
-glib_mock_incs = [
-  'src/glib-mock.h',
+pkg = import('pkgconfig')
+
+cc = meson.get_compiler('c')
+
+c_args = [
+  '-DG_LOG_DOMAIN=GLib-Mock',
 ]
+
+libs = []
+
+host_system = host_machine.system()
+
+dlopen_dlsym_test_code = '''
+#include <dlfcn.h>
+#include <stdio.h>
+int r;
+int glib_underscore_test (void) { return 42; }
+int main (int argc, char ** argv) {
+  void *f1 = (void*)0, *f2 = (void*)0, *handle;
+  handle = dlopen ((void*)0, 0);
+  if (handle) {
+    f1 = dlsym (handle, "glib_underscore_test");
+    f2 = dlsym (handle, "_glib_underscore_test");
+  }
+  r = (!f2 || f1) ? puts ("1") : puts ("0");
+  return r > 0 ? 0 : r;
+}'''
+
+libdl_dep = []
+libglib_dep = dependency('glib-2.0')
+
+if cc.links(
+  dlopen_dlsym_test_code,
+  name: 'dlopen() and dlsym() in system libraries',
+) or host_system == 'windows'
+  # Do nothing
+elif cc.links(
+  dlopen_dlsym_test_code,
+  args: '-ldl',
+  name: 'dlopen() and dlsym() in libdl',
+)
+  libdl_dep = cc.find_library('dl')
+else
+  error('This platform is missing libdl functions which are required for this library')
+endif
+
+if host_system == 'windows'
+  win32_sources = [
+    'src/glib-mock-win32.c',
+  ]
+
+  libglib_mock_win32 = library(
+    'glib-mock-win32',
+    win32_sources,
+    c_args: c_args,
+    dependencies: [libglib_dep, libdl_dep],
+    install: true,
+    include_directories: include_directories('src'),
+  )
+
+  libs += libglib_mock_win32
+
+  pkg.generate(
+    libglib_mock_win32,
+    requires: ['glib-2.0'],
+    name: 'GLib Mock Win32',
+    description: 'GLib Mock Windows private routines, your test program must link to this when running on Windows',
+    filebase: 'glib-mock-win32',
+  )
+endif
 
 libglib_mock_dep = declare_dependency(
   include_directories: include_directories('src'),
-  dependencies: dependency('glib-2.0'),
+  dependencies: [libglib_dep, libdl_dep],
+  link_with: libs,
 )
 
 meson.override_dependency('glib-mock', libglib_mock_dep)
 
 install_headers('src/glib-mock.h', subdir: 'glib-mock')
-
-glib_mock_run = configure_file(
-  input: 'glib-mock-run.py',
-  output: 'glib-mock-run',
-  install: not meson.is_subproject(),
-  install_dir: get_option('bindir'),
-  copy: true,
-)
-
-meson.override_find_program('glib-mock-run', glib_mock_run)
