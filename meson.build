@@ -8,8 +8,6 @@ c_args = [
   '-DG_LOG_DOMAIN="GLib-Mock"',
 ]
 
-libs = []
-
 host_system = host_machine.system()
 
 dlopen_dlsym_test_code = '''
@@ -31,10 +29,10 @@ int main (int argc, char ** argv) {
 libdl_dep = []
 libglib_dep = dependency('glib-2.0')
 
-if cc.links(
+if host_system == 'windows' or cc.links(
   dlopen_dlsym_test_code,
   name: 'dlopen() and dlsym() in system libraries',
-) or host_system == 'windows'
+)
   # Do nothing
 elif cc.links(
   dlopen_dlsym_test_code,
@@ -43,38 +41,41 @@ elif cc.links(
 )
   libdl_dep = cc.find_library('dl')
 else
-  error('This platform is missing libdl functions which are required for this library')
+  error(
+    'This platform is missing libdl functions which are required for this library',
+  )
 endif
+
+srcs = [
+  'src/glib-mock.c',
+]
 
 if host_system == 'windows'
-  win32_sources = [
-    'src/glib-mock-win32.c',
-  ]
-
-  libglib_mock_win32 = library(
-    'glib-mock-win32',
-    win32_sources,
-    c_args: c_args,
-    dependencies: [libglib_dep, libdl_dep],
-    install: true,
-    include_directories: include_directories('src'),
-  )
-
-  libs += libglib_mock_win32
-
-  pkg.generate(
-    libglib_mock_win32,
-    requires: ['glib-2.0'],
-    name: 'GLib Mock Win32',
-    description: 'GLib Mock Windows private routines, your test program must link to this when running on Windows',
-    filebase: 'glib-mock-win32',
-  )
+  srcs += 'src/glib-mock-win32.c'
 endif
 
-libglib_mock_dep = declare_dependency(
-  include_directories: include_directories('src'),
+libglib_mock = library(
+  'glib-mock',
+  srcs,
+  include_directories: 'src',
+  c_args: c_args,
   dependencies: [libglib_dep, libdl_dep],
-  link_with: libs,
+  install: true,
+)
+
+libglib_mock_dep = declare_dependency(
+  include_directories: 'src',
+  dependencies: [libglib_dep, libdl_dep],
+  link_with: libglib_mock,
+)
+
+pkg.generate(
+  libglib_mock,
+  requires: ['glib-2.0'],
+  name: 'GLib Mock',
+  description: 'Mocking framework for unit testing',
+  filebase: 'glib-mock',
+  subdirs: 'glib-mock',
 )
 
 meson.override_dependency('glib-mock', libglib_mock_dep)
