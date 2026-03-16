@@ -81,3 +81,5 @@ pkg.generate(
 meson.override_dependency('glib-mock', libglib_mock_dep)
 
 install_headers('src/glib-mock.h', subdir: 'glib-mock')
+
+subdir('tests')
