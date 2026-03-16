@@ -52,7 +52,7 @@ _g_mock_add_win32 (gpointer func, const gchar *func_name, gpointer *out_real);
   _g_mock_add_win32 ((func_name), # func_name, (out_real))
 
 #else
-#message "This platform doesn't support mocks"
+#pragma message "This platform doesn't support mocks"
 #endif
 
 G_END_DECLS
