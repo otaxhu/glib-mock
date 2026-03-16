@@ -30,26 +30,39 @@ G_BEGIN_DECLS
 
 #if defined(G_OS_UNIX)
 
+void
+_g_mock_abort (const gchar *msg, ...);
+
 #define g_mock_add(func_name) ((void)(func_name)) /* No-op */
 
-#define g_mock_add_with_real(func_name, out_real) \
+#define g_mock_get_real(func_name, out_real) \
   G_STMT_START \
   { \
-    void **_out_real = (void **)(out_real); \
+    (void)(func_name); \
+    gpointer *_out_real = (gpointer *)(out_real); \
     if (_out_real) \
-      *_out_real = dlsym (RTLD_NEXT, # func_name); \
+      { \
+        (void) dlerror (); /* Clear last error */ \
+        *_out_real = dlsym (RTLD_NEXT, # func_name); \
+        const gchar *error = dlerror (); \
+        if (!*_out_real) \
+          _g_mock_abort ("GLib-Mock: No real implementation found for <" \
+                         # func_name \
+                         "> mock function: dlerror returned: %s", \
+                         error); \
+      } \
   } \
   G_STMT_END
 
 #elif defined(G_OS_WIN32)
 
 G_NO_INLINE void
-_g_mock_add_win32 (gpointer func, const gchar *func_name, gpointer *out_real);
+_g_mock_get_real_win32 (gpointer func, const gchar *func_name, gpointer *out_real);
 
 #define g_mock_add(func_name) ((void)(func_name)) /* No-op */
 
-#define g_mock_add_with_real(func_name, out_real) \
-  _g_mock_add_win32 ((func_name), # func_name, (out_real))
+#define g_mock_get_real(func_name, out_real) \
+  _g_mock_get_real_win32 ((gpointer)(func_name), # func_name, (gpointer *)(out_real))
 
 #else
 #pragma message "This platform doesn't support mocks"
