@@ -94,7 +94,7 @@ _g_mock_get_real_win32(gpointer func, const gchar *func_name, gpointer *out_real
   if (!out_real)
     return;
 
-  HMODULE exe_module, caller_module;
+  HMODULE caller_module;
 
   /* Get the real implementation of the mock */
 
