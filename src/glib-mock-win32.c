@@ -221,7 +221,7 @@ g_mock_commit (void)
                           if (!VirtualProtect (&addr_thunk->u1.Function, sizeof (gpointer), PAGE_READWRITE, &old_protect))
                             G_WIN32_API_FAILED (VirtualProtect);
 
-                          addr_thunk->u1.Function = (ULONG_PTR)entry->mock_func;
+                          addr_thunk->u1.Function = (ULONG_PTR)entry->func;
                           VirtualProtect (&addr_thunk->u1.Function, sizeof (gpointer), old_protect, &old_protect);
 
                           entry->applied = TRUE;
