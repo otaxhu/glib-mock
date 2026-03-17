@@ -83,6 +83,8 @@ main (int argc, char **argv)
   g_mock_add (fwrite);
   g_mock_get_real (fwrite, &real_fwrite);
 
+  g_mock_commit ();
+
   g_test_init (&argc, &argv, NULL);
 
   g_test_add_func("/wrap-function", test_wrap_function);
