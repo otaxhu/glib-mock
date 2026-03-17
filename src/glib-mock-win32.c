@@ -150,11 +150,12 @@ _g_mock_add_win32 (gpointer func, const gchar *func_name)
   if G_UNLIKELY (!mock_entries)
     mock_entries = g_array_new (FALSE, FALSE, sizeof (GMockEntry));
 
-  g_array_append_val (mock_entries,
-                      (GMockEntry){
-                        .func = func,
-                        .func_name = func_name,
-                      });
+  GMockEntry entry = {
+    .func = func,
+    .func_name = func_name,
+  };
+
+  g_array_append_val (mock_entries, entry);
 }
 
 void
@@ -212,7 +213,7 @@ g_mock_commit (void)
 
                   for (guint i = 0; i < mock_entries->len; i++)
                     {
-                      MockEntry *entry = &g_array_index (mock_entries, MockEntry, i);
+                      GMockEntry *entry = &g_array_index (mock_entries, GMockEntry, i);
 
                       if (g_strcmp0 (imp_name, entry->func_name) == 0)
                         {
