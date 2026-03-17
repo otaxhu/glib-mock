@@ -157,8 +157,7 @@ _g_mock_add_win32 (gpointer func, const gchar *func_name)
                       });
 }
 
-/* We cannot inline, caller's real return address is required */
-G_NO_INLINE void
+void
 g_mock_commit (void)
 {
   if G_UNLIKELY (committed)

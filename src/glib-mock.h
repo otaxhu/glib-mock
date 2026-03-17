@@ -36,7 +36,7 @@ _g_mock_add_win32 (gpointer func, const gchar *func_name);
 #define g_mock_add(func_name) \
   _g_mock_add_win32 ((func_name), # func_name)
 
-G_NO_INLINE void
+void
 g_mock_commit (void);
 
 #elif defined(G_OS_UNIX)
