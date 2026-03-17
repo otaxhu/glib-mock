@@ -49,9 +49,6 @@ g_mock_commit (void);
 
 #if defined(G_OS_UNIX)
 
-void
-_g_mock_abort (const gchar *msg, ...);
-
 #define g_mock_get_real(func_name, out_real) \
   G_STMT_START \
   { \
@@ -63,10 +60,10 @@ _g_mock_abort (const gchar *msg, ...);
         *_out_real = dlsym (RTLD_NEXT, # func_name); \
         const gchar *error = dlerror (); \
         if (!*_out_real) \
-          _g_mock_abort ("GLib-Mock: No real implementation found for <" \
-                         # func_name \
-                         "> mock function: dlerror returned: %s", \
-                         error); \
+          g_error ("No real implementation found for <" \
+                   # func_name \
+                   "> mock function: dlerror returned: %s", \
+                   error); \
       } \
   } \
   G_STMT_END
