@@ -80,6 +80,8 @@ main (int argc, char **argv)
   mock_state.must_mock = FALSE;
   mock_state.must_fail = FALSE;
 
+  g_mock_init (argc, argv);
+
   g_mock_add (fwrite);
   g_mock_get_real (fwrite, &real_fwrite);
 

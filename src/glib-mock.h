@@ -47,6 +47,17 @@ g_mock_commit (void);
 
 #endif
 
+#if defined(__APPLE__)
+
+void
+g_mock_init (int argc, char **argv);
+
+#else
+
+#define g_mock_init(argc, argv) ((void)(argc), (void)(argv)) /* No-op */
+
+#endif
+
 #if defined(G_OS_UNIX)
 
 #define g_mock_get_real(func_name, out_real) \

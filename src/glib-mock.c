@@ -18,4 +18,30 @@
  * <https://www.gnu.org/licenses/>.
  */
 
-/* A C file is required for meson in order to prevent a warning :( */
+#if defined(__APPLE__)
+
+#include "glib-mock.h"
+#include <unistd.h>
+#include <mach-o/dyld.h>
+
+#endif
+
+#if defined(__APPLE__)
+
+void
+g_mock_init (int argc, char **argv)
+{
+  const gchar *flat_namespace = g_getenv ("DYLD_FORCE_FLAT_NAMESPACE");
+
+  /* Early return if the program is already in flat namespace */
+  if (flat_namespace != NULL)
+    return;
+
+  g_setenv ("DYLD_FORCE_FLAT_NAMESPACE", "1", TRUE);
+
+  execv (argv[0], argv);
+
+  g_error ("Couldn't re-exec the program");
+}
+
+#endif
