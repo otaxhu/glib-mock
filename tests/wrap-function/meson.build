@@ -4,6 +4,8 @@ libgreeter = shared_library(
   include_directories: '.',
 )
 
+testenv = environment(libglib_mock_dep.get_variable('testenv'))
+
 test(
   'wrap-function',
   executable(
@@ -13,4 +15,5 @@ test(
     dependencies: libglib_mock_dep,
     link_with: libgreeter,
   ),
+  env: testenv,
 )

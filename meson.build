@@ -63,10 +63,15 @@ libglib_mock = library(
   install: true,
 )
 
+libglib_mock_vars = [
+  'testenv=DYLD_FORCE_FLAT_NAMESPACE=1',
+]
+
 libglib_mock_dep = declare_dependency(
   include_directories: 'src',
   dependencies: [libglib_dep, libdl_dep],
   link_with: libglib_mock,
+  variables: libglib_mock_vars,
 )
 
 pkg.generate(
@@ -76,6 +81,7 @@ pkg.generate(
   description: 'Mocking framework for unit testing',
   filebase: 'glib-mock',
   subdirs: 'glib-mock',
+  variables: libglib_mock_vars,
 )
 
 meson.override_dependency('glib-mock', libglib_mock_dep)
