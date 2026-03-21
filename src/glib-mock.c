@@ -29,7 +29,7 @@
 #if defined(__APPLE__)
 
 void
-g_mock_init (int argc, char **argv)
+g_mock_init (int *argc, char ***argv)
 {
   const gchar *flat_namespace = g_getenv ("DYLD_FORCE_FLAT_NAMESPACE");
 
@@ -39,7 +39,7 @@ g_mock_init (int argc, char **argv)
 
   g_setenv ("DYLD_FORCE_FLAT_NAMESPACE", "1", TRUE);
 
-  execv (argv[0], argv);
+  execv ((*argv)[0], *argv);
 
   g_error ("Couldn't re-exec the program");
 }

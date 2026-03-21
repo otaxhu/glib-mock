@@ -50,7 +50,7 @@ g_mock_commit (void);
 #if defined(__APPLE__)
 
 void
-g_mock_init (int argc, char **argv);
+g_mock_init (int *argc, char ***argv);
 
 #elif defined(G_OS_UNIX)
 
