@@ -52,7 +52,7 @@ g_mock_commit (void);
 void
 g_mock_init (int argc, char **argv);
 
-#else
+#elif defined(G_OS_UNIX)
 
 #define g_mock_init(argc, argv) ((void)(argc), (void)(argv)) /* No-op */
 
