@@ -50,10 +50,6 @@ srcs = [
   'src/glib-mock.c',
 ]
 
-if host_system == 'windows'
-  srcs += 'src/glib-mock-win32.c'
-endif
-
 libglib_mock = library(
   'glib-mock',
   srcs,
