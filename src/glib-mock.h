@@ -39,7 +39,7 @@ void
 g_mock_add_full (gpointer func, const gchar *func_name);
 
 #define g_mock_add(func_name) \
-  g_mock_add_full ((gpointer)(func_name), # func_name)
+  g_mock_add_full ((gpointer) (func_name), G_STRINGIFY (func_name))
 
 void
 g_mock_commit (void);
@@ -48,25 +48,25 @@ g_mock_commit (void);
 G_NO_INLINE
 #endif
 void
-g_mock_get_real_full (gpointer func, const gchar *func_name, gpointer *out_real);
+g_mock_get_real_full (gpointer func,
+                      const gchar *func_name,
+                      gpointer *out_real);
 
 #if defined(G_OS_UNIX)
 
 #define g_mock_get_real(func_name, out_real) \
   G_STMT_START \
   { \
-    (void)(func_name); \
-    gpointer *_out_real = (gpointer *)(out_real); \
+    (void) (func_name); \
+    gpointer *_out_real = (gpointer *) (out_real); \
     if (_out_real) \
       { \
-        (void) dlerror (); /* Clear last error */ \
-        *_out_real = dlsym (RTLD_NEXT, # func_name); \
-        const gchar *error = dlerror (); \
+        *_out_real = dlsym (RTLD_NEXT, G_STRINGIFY (func_name)); \
         if (!*_out_real) \
           g_error ("No real implementation found for <" \
-                   # func_name \
+                   G_STRINGIFY (func_name) \
                    "> mock function: dlerror returned: %s", \
-                   error); \
+                   dlerror ()); \
       } \
   } \
   G_STMT_END
@@ -74,7 +74,9 @@ g_mock_get_real_full (gpointer func, const gchar *func_name, gpointer *out_real)
 #elif defined(G_OS_WIN32)
 
 #define g_mock_get_real(func_name, out_real) \
-  g_mock_get_real_full ((gpointer)(func_name), # func_name, (gpointer *)(out_real))
+  g_mock_get_real_full ((gpointer) (func_name), \
+                        G_STRINGIFY (func_name), \
+                        (gpointer *) (out_real))
 
 #endif
 

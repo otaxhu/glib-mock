@@ -153,29 +153,29 @@ g_mock_commit (void)
 
   for (int i = 0; i < modules_size / sizeof (HMODULE); i++)
     {
-      guintptr base_addr = (guintptr)modules[i];
+      guintptr base_addr = (guintptr) modules[i];
 
-      IMAGE_DOS_HEADER *dos_header = (IMAGE_DOS_HEADER *)base_addr;
+      IMAGE_DOS_HEADER *dos_header = (IMAGE_DOS_HEADER *) base_addr;
 
-      IMAGE_NT_HEADERS *nt_headers = (IMAGE_NT_HEADERS *)(base_addr + dos_header->e_lfanew);
+      IMAGE_NT_HEADERS *nt_headers = (IMAGE_NT_HEADERS *) (base_addr + dos_header->e_lfanew);
       IMAGE_DATA_DIRECTORY import_dir = nt_headers->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT];
       if (import_dir.VirtualAddress == 0)
         continue;
 
-      IMAGE_IMPORT_DESCRIPTOR *import_desc = (IMAGE_IMPORT_DESCRIPTOR *)(base_addr + import_dir.VirtualAddress);
+      IMAGE_IMPORT_DESCRIPTOR *import_desc = (IMAGE_IMPORT_DESCRIPTOR *) (base_addr + import_dir.VirtualAddress);
 
       while (import_desc->Name)
         {
-          IMAGE_THUNK_DATA *name_thunk = (IMAGE_THUNK_DATA *)(base_addr + import_desc->OriginalFirstThunk);
-          IMAGE_THUNK_DATA *addr_thunk = (IMAGE_THUNK_DATA *)(base_addr + import_desc->FirstThunk);
+          IMAGE_THUNK_DATA *name_thunk = (IMAGE_THUNK_DATA *) (base_addr + import_desc->OriginalFirstThunk);
+          IMAGE_THUNK_DATA *addr_thunk = (IMAGE_THUNK_DATA *) (base_addr + import_desc->FirstThunk);
 
           while (name_thunk->u1.AddressOfData)
             {
               /* We can't hook into ordinal imports */
               if (!(name_thunk->u1.Ordinal & IMAGE_ORDINAL_FLAG))
                 {
-                  IMAGE_IMPORT_BY_NAME *import_by_name = (IMAGE_IMPORT_BY_NAME *)(base_addr + name_thunk->u1.AddressOfData);
-                  const gchar *imp_name = (const gchar *)import_by_name->Name;
+                  IMAGE_IMPORT_BY_NAME *import_by_name = (IMAGE_IMPORT_BY_NAME *) (base_addr + name_thunk->u1.AddressOfData);
+                  const gchar *imp_name = (const gchar *) import_by_name->Name;
 
                   for (guint i = 0; i < mock_entries->len; i++)
                     {
@@ -187,7 +187,7 @@ g_mock_commit (void)
                           if (!VirtualProtect (&addr_thunk->u1.Function, sizeof (gpointer), PAGE_READWRITE, &old_protect))
                             G_WIN32_API_FAILED (VirtualProtect);
 
-                          addr_thunk->u1.Function = (ULONG_PTR)entry->func;
+                          addr_thunk->u1.Function = (ULONG_PTR) entry->func;
                           VirtualProtect (&addr_thunk->u1.Function, sizeof (gpointer), old_protect, &old_protect);
 
                           entry->applied = TRUE;
