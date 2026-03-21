@@ -67,15 +67,11 @@ After you succesfully installed the library, you can run tests by doing the foll
     ...,
     dependencies: [libglib_mock_dep],
   )
-  testenv = environment(libglib_mock_dep.get_variable('testenv'))
   test(
     'your-test',
     test_executable,
-    env: testenv,
   )
   ```
-
-  It's very important to run your tests with `testenv` environment variable as above, otherwise, your test may fail to create the mocks when running.
 
 ## Technical requirements
 
