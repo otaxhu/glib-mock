@@ -28,35 +28,27 @@
 
 G_BEGIN_DECLS
 
-#if defined(G_PLATFORM_WIN32)
-
-void
-_g_mock_add_win32 (gpointer func, const gchar *func_name);
-
-#define g_mock_add(func_name) \
-  _g_mock_add_win32 ((func_name), # func_name)
-
-void
-g_mock_commit (void);
-
-#elif defined(G_OS_UNIX)
-
-#define g_mock_add(func_name) ((void)(func_name)) /* No-op */
-
-#define g_mock_commit() G_STMT_START {} G_STMT_END /* No-op */
-
+#if !defined(G_PLATFORM_WIN32) && !defined(G_OS_UNIX)
+#error "This platform doesn't support mocks"
 #endif
-
-#if defined(__APPLE__)
 
 void
 g_mock_init (int *argc, char ***argv);
 
-#elif defined(G_OS_UNIX)
+void
+g_mock_add_full (gpointer func, const gchar *func_name);
 
-#define g_mock_init(argc, argv) ((void)(argc), (void)(argv)) /* No-op */
+#define g_mock_add(func_name) \
+  g_mock_add_full ((gpointer)(func_name), # func_name)
 
+void
+g_mock_commit (void);
+
+#if defined(G_OS_WIN32)
+G_NO_INLINE
 #endif
+void
+g_mock_get_real_full (gpointer func, const gchar *func_name, gpointer *out_real);
 
 #if defined(G_OS_UNIX)
 
@@ -81,14 +73,9 @@ g_mock_init (int *argc, char ***argv);
 
 #elif defined(G_OS_WIN32)
 
-G_NO_INLINE void
-_g_mock_get_real_win32 (gpointer func, const gchar *func_name, gpointer *out_real);
-
 #define g_mock_get_real(func_name, out_real) \
-  _g_mock_get_real_win32 ((gpointer)(func_name), # func_name, (gpointer *)(out_real))
+  g_mock_get_real_full ((gpointer)(func_name), # func_name, (gpointer *)(out_real))
 
-#else
-#pragma message "This platform doesn't support mocks"
 #endif
 
 G_END_DECLS
