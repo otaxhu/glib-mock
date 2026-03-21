@@ -220,7 +220,9 @@ g_mock_commit (void)
 G_NO_INLINE
 #endif
 void
-g_mock_get_real_full (gpointer func, const gchar *func_name, gpointer *out_real)
+g_mock_get_real_full (gpointer func,
+                      const gchar *func_name,
+                      gpointer *out_real)
 {
   if G_UNLIKELY (committed)
     g_error ("Unexpected call to g_mock_get_real after g_mock_commit has been called");
