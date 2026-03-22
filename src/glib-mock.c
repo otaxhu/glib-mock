@@ -74,9 +74,16 @@ __declspec(naked) static void *_ReturnAddress (void) { __asm mov eax, [ebp+4] __
            # func_name \
            "> call")
 
+#define G_WARN_MOCK_UNAPPLIED(func_name) \
+  g_warning ("Mock <%s> couldn't be applied, you may not see it working correctly", \
+             func_name)
+
 void
 g_mock_init (int *argc, char ***argv)
 {
+  g_return_if_fail (argc != NULL && *argc > 0);
+  g_return_if_fail (argv != NULL);
+
 #if defined(__APPLE__)
   const gchar *flat_namespace = g_getenv ("DYLD_FORCE_FLAT_NAMESPACE");
 
@@ -110,6 +117,9 @@ g_mock_add_full (gpointer func, const gchar *func_name)
 {
   if G_UNLIKELY (committed)
     g_error ("Unexpected call to g_mock_add after g_mock_commit has been called");
+
+  g_return_if_fail (func != NULL);
+  g_return_if_fail (func_name != NULL && func_name[0] != '\0');
 
 #if defined(G_PLATFORM_WIN32)
   if G_UNLIKELY (!mock_entries)
@@ -209,7 +219,7 @@ g_mock_commit (void)
       GMockEntry *entry = &g_array_index (mock_entries, GMockEntry, i);
 
       if (!entry->applied)
-        g_warning ("Mock <%s> couldn't be applied, you may not see it working correctly", entry->func_name);
+        G_WARN_MOCK_UNAPPLIED (entry->func_name);
     }
 
   g_clear_pointer (&mock_entries, g_array_unref);
@@ -227,13 +237,13 @@ g_mock_get_real_full (gpointer func,
   if G_UNLIKELY (committed)
     g_error ("Unexpected call to g_mock_get_real after g_mock_commit has been called");
 
+  g_return_if_fail (func != NULL);
+  g_return_if_fail (func_name != NULL && func_name[0] != '\0');
+  g_return_if_fail (out_real != NULL);
+
 #if defined(G_OS_UNIX)
   g_error ("You must call g_mock_get_real macro instead of this function");
 #elif defined(G_OS_WIN32)
-
-  /* Nothing to do, user is allowed to pass NULL */
-  if (!out_real)
-    return;
 
   HMODULE caller_module;
 
