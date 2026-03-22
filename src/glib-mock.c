@@ -243,7 +243,7 @@ g_mock_get_real_full (gpointer func,
                           GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
                           (LPCSTR) _ReturnAddress (),
                           &caller_module))
-    G_WIN32_API_FAILED(GetModuleHandleEx);
+    G_WIN32_API_FAILED (GetModuleHandleEx);
 
   DWORD modules_size, modules_size2;
   HANDLE process = GetCurrentProcess ();
