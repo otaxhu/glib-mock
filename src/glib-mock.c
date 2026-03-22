@@ -24,6 +24,10 @@
 #include <unistd.h>
 #endif
 
+#if defined(G_OS_UNIX) && !defined(G_PLATFORM_WIN32)
+#include <dlfcn.h>
+#endif
+
 /* {{{ _ReturnAddress implementation copied from:
  *
  * https://github.com/dlfcn-win32/dlfcn-win32/blob/3e9bfa7/src/dlfcn.c#L60
@@ -131,6 +135,18 @@ g_mock_add_full (gpointer func, const gchar *func_name)
   };
 
   g_array_append_val (mock_entries, entry);
+#elif defined(G_OS_UNIX)
+  /* Check directly in this function if the mock was succesfully applied.
+   *
+   * Same logic as in Win32 g_mock_commit, but without storing anything to an array
+   * (optimization.)
+   */
+
+  gpointer sym = (gpointer) dlsym (RTLD_DEFAULT, func_name);
+  if (!sym)
+    g_error ("dlsym(RTLD_DEFAULT) failed: dlerror returned: %s", dlerror ());
+  else if (sym != func)
+    G_WARN_MOCK_UNAPPLIED (func_name);
 #endif
 }
 
