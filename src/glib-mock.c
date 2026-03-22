@@ -24,6 +24,11 @@
 #include <unistd.h>
 #endif
 
+#if defined(G_PLATFORM_WIN32)
+#include <windows.h>
+#include <psapi.h>
+#endif
+
 #if defined(G_OS_UNIX) && !defined(G_PLATFORM_WIN32)
 #include <dlfcn.h>
 #endif
