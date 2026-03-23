@@ -136,7 +136,7 @@ g_mock_add_full (gpointer func, const gchar *func_name)
 
   GMockEntry entry = {
     .func = func,
-    .func_name = func_name,
+    .func_name = g_strdup (func_name),
   };
 
   g_array_append_val (mock_entries, entry);
