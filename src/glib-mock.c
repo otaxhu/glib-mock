@@ -157,7 +157,9 @@ g_mock_add_full (gpointer func, const gchar *func_name)
 
   gpointer sym = (gpointer) dlsym (RTLD_DEFAULT, func_name);
   if (!sym)
-    g_error ("dlsym(RTLD_DEFAULT) failed: dlerror returned: %s", dlerror ());
+    g_error ("dlsym(RTLD_DEFAULT, \"%s\") failed: dlerror returned: %s",
+             func_name,
+             dlerror ());
   else if (sym != func)
     G_WARN_MOCK_UNAPPLIED (func_name);
 #endif
@@ -194,7 +196,7 @@ g_mock_commit (void)
   if G_LIKELY (mock_entries)
     {
       g_mock_add_full (mock_GetProcAddress, "GetProcAddress");
-      g_mock_get_real_full ((gpointer) mock_GetProcAddress, "GetProcAddress", (gpointer *) &real_GetProcAddress);
+      g_mock_get_real ("GetProcAddress", (gpointer *) &real_GetProcAddress);
     }
 #endif
 
@@ -289,14 +291,11 @@ g_mock_commit (void)
 G_NO_INLINE
 #endif
 void
-g_mock_get_real_full (gpointer func,
-                      const gchar *func_name,
-                      gpointer *out_real)
+(g_mock_get_real) (const gchar *func_name, gpointer *out_real)
 {
   if G_UNLIKELY (committed)
     g_error ("Unexpected call to g_mock_get_real after g_mock_commit has been called");
 
-  g_return_if_fail (func != NULL);
   g_return_if_fail (func_name != NULL && func_name[0] != '\0');
   g_return_if_fail (out_real != NULL);
 
