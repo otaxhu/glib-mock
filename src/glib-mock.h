@@ -48,35 +48,24 @@ g_mock_commit (void);
 G_NO_INLINE
 #endif
 void
-g_mock_get_real_full (gpointer func,
-                      const gchar *func_name,
-                      gpointer *out_real);
+g_mock_get_real (const gchar *func_name, gpointer *out_real);
 
 #if defined(G_OS_UNIX)
 
 #define g_mock_get_real(func_name, out_real) \
   G_STMT_START \
   { \
-    (void) (func_name); \
     gpointer *_out_real = (gpointer *) (out_real); \
     if (_out_real) \
       { \
-        *_out_real = dlsym (RTLD_NEXT, G_STRINGIFY (func_name)); \
+        *_out_real = dlsym (RTLD_NEXT, (const gchar *) func_name); \
         if (!*_out_real) \
-          g_error ("No real implementation found for <" \
-                   G_STRINGIFY (func_name) \
-                   "> mock function: dlerror returned: %s", \
+          g_error ("No real implementation found for <%s> mock function: dlerror returned: %s", \
+                   func_name, \
                    dlerror ()); \
       } \
   } \
   G_STMT_END
-
-#elif defined(G_OS_WIN32)
-
-#define g_mock_get_real(func_name, out_real) \
-  g_mock_get_real_full ((gpointer) (func_name), \
-                        G_STRINGIFY (func_name), \
-                        (gpointer *) (out_real))
 
 #endif
 
