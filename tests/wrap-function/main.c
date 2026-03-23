@@ -26,7 +26,7 @@ size_t fwrite (const void *buf, size_t size, size_t count, FILE *file) /* Mock *
   return real_fwrite (buf, size, count, file);
 }
 
-void
+static void
 test_wrap_function (void)
 {
   const gchar expected_contents[] =
