@@ -83,9 +83,17 @@ __declspec(naked) static void *_ReturnAddress (void) { __asm mov eax, [ebp+4] __
            # func_name \
            "> call")
 
+#if defined(G_PLATFORM_WIN32)
+#define G_WARN_MOCK_UNAPPLIED(func_name) \
+  g_warning ("Mock <%s> not found in any of the loaded IATs. If using LoadLibrary() " \
+             "+ GetProcAddress(), safely ignore this warning: the mock will be returned when " \
+             "GetProcAddress() is called with the correct name.", \
+             func_name)
+#else
 #define G_WARN_MOCK_UNAPPLIED(func_name) \
   g_warning ("Mock <%s> couldn't be applied, you may not see it working correctly", \
              func_name)
+#endif
 
 void
 g_mock_init (int *argc, char ***argv)
@@ -155,11 +163,40 @@ g_mock_add_full (gpointer func, const gchar *func_name)
 #endif
 }
 
+#if defined(G_PLATFORM_WIN32)
+static gpointer (WINAPI *real_GetProcAddress) (HMODULE module, gchar *func_name);
+static gpointer WINAPI
+mock_GetProcAddress (HMODULE module, gchar *func_name)
+{
+  gpointer real_func = real_GetProcAddress (module, func_name);
+  if (!real_func)
+    return NULL;
+
+  for (guint i = 0; i < mock_entries->len; i++)
+    {
+      GMockEntry *entry = &g_array_index (mock_entries, GMockEntry, i);
+
+      if (g_strcmp0 (entry->func_name, func_name) == 0)
+        return entry->func;
+    }
+
+  return real_func;
+}
+#endif
+
 void
 g_mock_commit (void)
 {
   if G_UNLIKELY (committed)
     return;
+
+#if defined(G_PLATFORM_WIN32)
+  if G_LIKELY (mock_entries)
+    {
+      g_mock_add_full (mock_GetProcAddress, "GetProcAddress");
+      g_mock_get_real_full (mock_GetProcAddress, "GetProcAddress", &real_GetProcAddress);
+    }
+#endif
 
   committed = TRUE;
 
@@ -243,7 +280,8 @@ g_mock_commit (void)
         G_WARN_MOCK_UNAPPLIED (entry->func_name);
     }
 
-  g_clear_pointer (&mock_entries, g_array_unref);
+  /* Leak mock_entries, due to it being used by mock_GetProcAddress */
+  /* g_clear_pointer (&mock_entries, g_array_unref); */
 #endif
 }
 
