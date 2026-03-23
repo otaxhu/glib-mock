@@ -83,7 +83,7 @@ main (int argc, char **argv)
   g_mock_init (&argc, &argv);
 
   g_mock_add (fwrite);
-  g_mock_get_real (fwrite, &real_fwrite);
+  g_mock_get_real ("fwrite", &real_fwrite);
 
   g_mock_commit ();
 
