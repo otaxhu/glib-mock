@@ -63,7 +63,7 @@ test_rt_dynamic_linked_other_module (void)
 static void
 test_rt_dynamic_linked (void)
 {
-  g_assert_true (real_GetProcAddress != GetProcAddress);
+  g_assert_true (*real_GetProcAddress != GetProcAddress);
 
   HMODULE ucrt_stdio = LoadLibrary (L"api-ms-win-crt-stdio-l1-1-0.dll");
   g_assert_true (ucrt_stdio != NULL);
@@ -85,7 +85,7 @@ int main (int argc, char **argv)
   g_mock_add (fwrite);
   g_mock_get_real (fwrite, &real_fwrite);
 
-  g_mock_get_real_full (0x1234 /* Fake address */, "GetProcAddress", &real_GetProcAddress);
+  g_mock_get_real_full ((gpointer) 0x1234 /* Fake address */, "GetProcAddress", (gpointer *) &real_GetProcAddress);
 
   g_mock_commit ();
 

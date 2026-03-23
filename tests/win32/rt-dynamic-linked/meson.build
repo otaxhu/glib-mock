@@ -2,6 +2,7 @@ libgreeter = library(
   'greeter',
   'greeter.c',
   include_directories: '.',
+  dependencies: libglib_dep,
 )
 
 test(

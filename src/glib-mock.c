@@ -194,7 +194,7 @@ g_mock_commit (void)
   if G_LIKELY (mock_entries)
     {
       g_mock_add_full (mock_GetProcAddress, "GetProcAddress");
-      g_mock_get_real_full (mock_GetProcAddress, "GetProcAddress", &real_GetProcAddress);
+      g_mock_get_real_full ((gpointer) mock_GetProcAddress, "GetProcAddress", (gpointer *) &real_GetProcAddress);
     }
 #endif
 
@@ -310,7 +310,7 @@ g_mock_get_real_full (gpointer func,
 
   if (!GetModuleHandleEx (GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
                           GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
-                          (LPCSTR) _ReturnAddress (),
+                          (gpointer) _ReturnAddress (),
                           &caller_module))
     G_WIN32_API_FAILED (GetModuleHandleEx);
 

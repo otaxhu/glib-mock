@@ -10,6 +10,13 @@ c_args = [
 
 host_system = host_machine.system()
 
+if host_system == 'windows' or host_system == 'cygwin'
+  add_project_arguments(
+    ['-DUNICODE', '-D_UNICODE'],
+    language: 'c',
+  )
+endif
+
 dlopen_dlsym_test_code = '''
 #include <dlfcn.h>
 #include <stdio.h>

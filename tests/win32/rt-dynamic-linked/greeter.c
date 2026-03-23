@@ -15,7 +15,7 @@ void greet (FILE *file)
       if (!stdio_ucrt)
         g_error ("api-ms-win-crt-stdio-l1-1-0.dll couldn't be loaded");
 
-      dyn_fwrite = GetProcAddress (stdio_ucrt, "fwrite");
+      dyn_fwrite = (gpointer) GetProcAddress (stdio_ucrt, "fwrite");
       if (!dyn_fwrite)
         g_error ("fwrite couldn't be loaded");
     }
