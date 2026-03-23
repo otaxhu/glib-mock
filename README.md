@@ -78,3 +78,21 @@ After you succesfully installed the library, you can run tests by doing the foll
 - ### Dynamic linking only
 
   `glib-mock` can only intercept functions that are dynamically linked (shared libraries) and dynamically loaded (so no LTO inlines). It will not work with libraries linked statically.
+
+## Platform support
+
+| Feature | Linux | macOS | Windows |
+| :-----: | ----- | ----- | ------- |
+| Interposition method | Native interposition by exporting symbol at compilation time (user just writes a regular exported function) | **Same as in Linux** | IAT / `GetProcAddress` runtime patching |
+| Mock load-time imports | ✅ | ✅ | ✅ |
+| Mock run-time imports | ✅ (via `dlsym`) | ✅ (via `dlsym`) | ✅ (via `GetProcAddress`, or `dlsym` if using Cygwin) |
+
+  ### Platform specifics
+  
+  - **Windows**: Run-time dynamically linked functions
+
+    The framework supports mocking [run-time dynamically linked](https://learn.microsoft.com/en-us/windows/win32/dlls/run-time-dynamic-linking) functions on Windows. This ensures that even if a library is loaded at runtime via `LoadLibrary()`, any request for a symbol will transparently return your mock implementation.
+
+  - **macOS**: Requires flat namespace
+
+    This is a requirement for the framework in order to perform interposition without doing any recompilation of libraries (other methods require recompilation and modification to sources in order to perform interpostion). Ultimately, this was the less invasive method to implement the framework in macOS, and may be unstable due to the use of flat-namespaces.
