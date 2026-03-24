@@ -53,36 +53,8 @@ else
   )
 endif
 
-srcs = [
-  'src/glib-mock.c',
-]
+libdir = get_option('prefix') / get_option('libdir')
+profile = get_option('profile')
 
-libglib_mock = library(
-  'glib-mock',
-  srcs,
-  include_directories: 'src',
-  c_args: c_args,
-  dependencies: [libglib_dep, libdl_dep],
-  install: true,
-)
-
-libglib_mock_dep = declare_dependency(
-  include_directories: 'src',
-  dependencies: [libglib_dep, libdl_dep],
-  link_with: libglib_mock,
-)
-
-pkg.generate(
-  libglib_mock,
-  requires: ['glib-2.0'],
-  name: 'GLib Mock',
-  description: 'Mocking framework for unit testing',
-  filebase: 'glib-mock',
-  subdirs: 'glib-mock',
-)
-
-meson.override_dependency('glib-mock', libglib_mock_dep)
-
-install_headers('src/glib-mock.h', subdir: 'glib-mock')
-
+subdir('src')
 subdir('tests')
