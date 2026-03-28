@@ -23,6 +23,8 @@
 #include <glib-2.0/glib.h>
 
 #if defined(G_OS_UNIX)
+#define __USE_GNU
+#define _GNU_SOURCE
 #include <dlfcn.h>
 #endif
 
@@ -44,6 +46,9 @@ g_mock_add_full (gpointer func, const gchar *func_name);
 void
 g_mock_commit (void);
 
+gboolean
+g_mock_is_committed (void);
+
 #if defined(G_OS_WIN32)
 G_NO_INLINE
 #endif
@@ -52,17 +57,21 @@ g_mock_get_real (const gchar *func_name, gpointer *out_real);
 
 #if defined(G_OS_UNIX)
 
+void
+_g_mock_create_dyn_promise (const gchar *func_name, gpointer *out_real);
+
 #define g_mock_get_real(func_name, out_real) \
   G_STMT_START \
   { \
+    if (g_mock_is_committed ()) \
+      g_error ("Unexpected call to g_mock_get_real after g_mock_commit has been called"); \
     gpointer *_out_real = (gpointer *) (out_real); \
+    const gchar *_func_name = (const gchar *) (func_name); \
     if (_out_real) \
       { \
-        *_out_real = dlsym (RTLD_NEXT, (const gchar *) func_name); \
+        *_out_real = dlsym (RTLD_NEXT, _func_name); \
         if (!*_out_real) \
-          g_error ("No real implementation found for <%s> mock function: dlerror returned: %s", \
-                   func_name, \
-                   dlerror ()); \
+          _g_mock_create_dyn_promise (_func_name, _out_real); \
       } \
   } \
   G_STMT_END
