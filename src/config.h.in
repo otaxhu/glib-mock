@@ -1,0 +1,3 @@
+#pragma once
+
+#define G_MOCK_DARWIN_DL_PRELOAD_PATH @darwin-dl-preload-path@

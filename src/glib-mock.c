@@ -18,7 +18,11 @@
  * <https://www.gnu.org/licenses/>.
  */
 
+#include "config.h"
+
 #include "glib-mock.h"
+
+#include "glib-mock-priv.h"
 
 #if defined(__linux__)
 #include <link.h>
@@ -97,23 +101,6 @@ __declspec(naked) static void *_ReturnAddress (void) { __asm mov eax, [ebp+4] __
              func_name)
 #endif
 
-typedef struct
-{
-  gpointer func;
-  const gchar *func_name;
-  gboolean applied;
-} GMockEntry;
-
-static GArray *mock_entries = NULL;
-
-typedef struct
-{
-  gchar *func_name;
-  gpointer *user_out_real;
-} GMockDynPromise;
-
-static GArray *mock_dyn_promises = NULL;
-
 static void
 mock_dyn_promise_element_clear (GMockDynPromise *promise)
 {
@@ -171,30 +158,30 @@ mock_dlsym (gpointer handle, const gchar *name)
   if (!real_func)
     return NULL;
 
-  if (mock_dyn_promises)
-    for (guint i = 0; i < mock_dyn_promises->len; i++)
+  if (_g_mock_dyn_promises)
+    for (guint i = 0; i < _g_mock_dyn_promises->len; i++)
       {
-        GMockDynPromise *promise = &g_array_index (mock_dyn_promises, GMockDynPromise, i);
+        GMockDynPromise *promise = &g_array_index (_g_mock_dyn_promises, GMockDynPromise, i);
 
         if (g_strcmp0 (promise->func_name, name) == 0)
           {
             *promise->user_out_real = real_func;
-            g_array_remove_index (mock_dyn_promises, i);
+            g_array_remove_index (_g_mock_dyn_promises, i);
             if (i > 0)
               i--;
           }
 
-        if (mock_dyn_promises->len == 0)
+        if (_g_mock_dyn_promises->len == 0)
           {
-            g_clear_pointer (&mock_dyn_promises, g_array_unref);
+            g_clear_pointer (&_g_mock_dyn_promises, g_array_unref);
             break;
           }
       }
 
-  if G_LIKELY (mock_entries)
-    for (guint i = 0; i < mock_entries->len; i++)
+  if G_LIKELY (_g_mock_entries)
+    for (guint i = 0; i < _g_mock_entries->len; i++)
       {
-        GMockEntry *entry = &g_array_index (mock_entries, GMockEntry, i);
+        GMockEntry *entry = &g_array_index (_g_mock_entries, GMockEntry, i);
 
         if (g_strcmp0 (name, entry->func_name) == 0)
           return entry->func;
@@ -317,6 +304,58 @@ g_mock_init (int *argc, char ***argv)
       needs_reexec = TRUE;
       g_setenv ("DYLD_FORCE_FLAT_NAMESPACE", "1", TRUE);
     }
+
+  const gchar *preload_libs = g_getenv ("DYLD_INSERT_LIBRARIES");
+  gchar *new_preload_libs = NULL;
+
+  if (preload_libs)
+    {
+      /* Check if preload_libs contains G_MOCK_DARWIN_DL_PRELOAD_PATH at prefix */
+
+      gboolean needs_prepend_lib = FALSE;
+
+      if (strncmp (preload_libs,
+                   G_MOCK_DARWIN_DL_PRELOAD_PATH,
+                   sizeof (G_MOCK_DARWIN_DL_PRELOAD_PATH) - 1) != 0)
+        {
+          needs_prepend_lib = TRUE;
+        }
+      else
+        {
+          gchar last_char = preload_libs[sizeof (G_MOCK_DARWIN_DL_PRELOAD_PATH) - 1];
+          if (last_char != ':' && last_char != '\0')
+            needs_prepend_lib = TRUE;
+        }
+
+      if (needs_prepend_lib)
+        {
+          needs_reexec = TRUE;
+
+          size_t new_size = strlen (preload_libs) + sizeof (G_MOCK_DARWIN_DL_PRELOAD_PATH) + 1;
+
+          new_preload_libs = (gchar *) g_malloc (new_size);
+
+          memcpy (new_preload_libs,
+                  G_MOCK_DARWIN_DL_PRELOAD_PATH,
+                  sizeof (G_MOCK_DARWIN_DL_PRELOAD_PATH) - 1);
+          new_preload_libs[sizeof (G_MOCK_DARWIN_DL_PRELOAD_PATH) - 1] = ':';
+          memcpy (new_preload_libs + sizeof (G_MOCK_DARWIN_DL_PRELOAD_PATH),
+                  preload_libs,
+                  new_size - sizeof (G_MOCK_DARWIN_DL_PRELOAD_PATH));
+        }
+    }
+  else
+    {
+      needs_reexec = TRUE;
+      new_preload_libs = G_MOCK_DARWIN_DL_PRELOAD_PATH;
+    }
+
+  if (new_preload_libs)
+    {
+      g_setenv ("DYLD_INSERT_LIBRARIES", new_preload_libs, TRUE);
+      if (preload_libs)
+        g_free (new_preload_libs);
+    }
 #endif
 
 #if defined(__linux__)
@@ -350,15 +389,15 @@ g_mock_add_full (gpointer func, const gchar *func_name)
   g_return_if_fail (func != NULL);
   g_return_if_fail (func_name != NULL && func_name[0] != '\0');
 
-  if G_UNLIKELY (!mock_entries)
-    mock_entries = g_array_sized_new (FALSE, FALSE, sizeof (GMockEntry), 1);
+  if G_UNLIKELY (!_g_mock_entries)
+    _g_mock_entries = g_array_sized_new (FALSE, FALSE, sizeof (GMockEntry), 1);
 
   GMockEntry entry = {
     .func = func,
     .func_name = g_strdup (func_name),
   };
 
-  g_array_append_val (mock_entries, entry);
+  g_array_append_val (_g_mock_entries, entry);
 }
 
 #if defined(G_PLATFORM_WIN32)
@@ -367,12 +406,12 @@ static gpointer WINAPI
 mock_GetProcAddress (HMODULE module, gchar *func_name)
 {
   gpointer real_func = real_GetProcAddress (module, func_name);
-  if (!real_func || G_UNLIKELY (!mock_entries))
+  if (!real_func || G_UNLIKELY (!_g_mock_entries))
     return real_func;
 
-  for (guint i = 0; i < mock_entries->len; i++)
+  for (guint i = 0; i < _g_mock_entries->len; i++)
     {
-      GMockEntry *entry = &g_array_index (mock_entries, GMockEntry, i);
+      GMockEntry *entry = &g_array_index (_g_mock_entries, GMockEntry, i);
 
       if (g_strcmp0 (entry->func_name, func_name) == 0)
         return entry->func;
@@ -389,7 +428,7 @@ g_mock_commit (void)
     return;
 
 #if defined(G_PLATFORM_WIN32)
-  if G_LIKELY (mock_entries)
+  if G_LIKELY (_g_mock_entries)
     {
       g_mock_add_full (mock_GetProcAddress, "GetProcAddress");
       g_mock_get_real ("GetProcAddress", (gpointer *) &real_GetProcAddress);
@@ -399,7 +438,7 @@ g_mock_commit (void)
   committed = TRUE;
 
 #if defined(G_PLATFORM_WIN32)
-  if G_UNLIKELY (!mock_entries)
+  if G_UNLIKELY (!_g_mock_entries)
     return;
 
   DWORD modules_size, modules_size2;
@@ -444,9 +483,9 @@ g_mock_commit (void)
                   IMAGE_IMPORT_BY_NAME *import_by_name = (IMAGE_IMPORT_BY_NAME *) (base_addr + name_thunk->u1.AddressOfData);
                   const gchar *imp_name = (const gchar *) import_by_name->Name;
 
-                  for (guint i = 0; i < mock_entries->len; i++)
+                  for (guint i = 0; i < _g_mock_entries->len; i++)
                     {
-                      GMockEntry *entry = &g_array_index (mock_entries, GMockEntry, i);
+                      GMockEntry *entry = &g_array_index (_g_mock_entries, GMockEntry, i);
 
                       if (g_strcmp0 (imp_name, entry->func_name) == 0)
                         {
@@ -470,18 +509,18 @@ g_mock_commit (void)
 
   /* Check mocks were applied */
 
-  for (guint i = 0; i < mock_entries->len; i++)
+  for (guint i = 0; i < _g_mock_entries->len; i++)
     {
-      GMockEntry *entry = &g_array_index (mock_entries, GMockEntry, i);
+      GMockEntry *entry = &g_array_index (_g_mock_entries, GMockEntry, i);
 
       if (!entry->applied)
         G_WARN_MOCK_UNAPPLIED (entry->func_name);
     }
 
-  /* Leak mock_entries, due to it being used by mock_GetProcAddress
+  /* Leak _g_mock_entries, due to it being used by mock_GetProcAddress
    * and mock_dlsym.
    */
-  /* g_clear_pointer (&mock_entries, g_array_unref); */
+  /* g_clear_pointer (&_g_mock_entries, g_array_unref); */
 #elif defined(__linux__)
   dl_iterate_phdr (phdr_dlsym_patch_cb, NULL);
   if (!real_dlsym)
@@ -515,10 +554,10 @@ _g_mock_create_dyn_promise (const gchar *func_name, gpointer *out_real)
 {
   *out_real = real_not_found_dynamic;
 
-  if G_UNLIKELY (!mock_dyn_promises)
+  if G_UNLIKELY (!_g_mock_dyn_promises)
     {
-      mock_dyn_promises = g_array_sized_new (FALSE, FALSE, sizeof (GMockDynPromise), 1);
-      g_array_set_clear_func (mock_dyn_promises,
+      _g_mock_dyn_promises = g_array_sized_new (FALSE, FALSE, sizeof (GMockDynPromise), 1);
+      g_array_set_clear_func (_g_mock_dyn_promises,
                               (GDestroyNotify) mock_dyn_promise_element_clear);
     }
 
@@ -526,7 +565,7 @@ _g_mock_create_dyn_promise (const gchar *func_name, gpointer *out_real)
     .func_name = g_strdup (func_name),
     .user_out_real = out_real,
   };
-  g_array_append_val (mock_dyn_promises, new_promise);
+  g_array_append_val (_g_mock_dyn_promises, new_promise);
 }
 
 #if defined(G_OS_WIN32)

@@ -63,13 +63,24 @@ test_rt_dynamic_linked (void)
 {
   g_assert_true (*real_dlsym != dlsym);
 
+  /* NOTE: The below assertion works on Linux, but doesn't on macOS, as a matter of fact,
+   * if you compile the test with "-rdynamic" flag on Linux, it stops working on Linux.
+   *
+   * See: https://stackoverflow.com/questions/73207260
+   *
+   * Since we are expecting the user to define a mock as non-static, we can assume
+   * that the symbol is available through RTLD_DEFAULT, but since it depends on how they
+   * compiled the test executable, this assertion it's uncertain.
+   */
+  /*
   gpointer real_func = dlsym (RTLD_DEFAULT, "my_fwrite");
   g_assert_null (real_func);
+  */
 
   gpointer libmy_fwrite = dlopen (g_getenv ("LIB_MY_FWRITE_PATH"), RTLD_NOW);
   g_assert_nonnull (libmy_fwrite);
 
-  real_func = real_dlsym (libmy_fwrite, "my_fwrite");
+  gpointer real_func = real_dlsym (libmy_fwrite, "my_fwrite");
   g_assert_nonnull (real_func);
 
   gpointer mock_func = dlsym (libmy_fwrite, "my_fwrite");
