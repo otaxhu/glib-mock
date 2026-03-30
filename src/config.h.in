@@ -1,0 +1,3 @@
+#pragma once
+
+#define G_MOCK_DL_PRELOAD_PATH @dl-preload-path@

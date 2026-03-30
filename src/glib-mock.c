@@ -18,7 +18,11 @@
  * <https://www.gnu.org/licenses/>.
  */
 
+#include "config.h"
+
 #include "glib-mock.h"
+
+#include "glib-mock-priv.h"
 
 #if defined(__linux__)
 #include <link.h>
@@ -97,23 +101,6 @@ __declspec(naked) static void *_ReturnAddress (void) { __asm mov eax, [ebp+4] __
              func_name)
 #endif
 
-typedef struct
-{
-  gpointer func;
-  const gchar *func_name;
-  gboolean applied;
-} GMockEntry;
-
-static GArray *mock_entries = NULL;
-
-typedef struct
-{
-  gchar *func_name;
-  gpointer *user_out_real;
-} GMockDynPromise;
-
-static GArray *mock_dyn_promises = NULL;
-
 static void
 mock_dyn_promise_element_clear (GMockDynPromise *promise)
 {
@@ -127,175 +114,6 @@ g_mock_is_committed (void)
 {
   return committed;
 }
-
-#if defined(__linux__)
-static gpointer (*real_dlsym) (gpointer handle, const gchar *name);
-
-/* Entrypoint written in asm for mock_dlsym. */
-__attribute__((naked)) static gpointer
-mock_dlsym_asm (gpointer handle, const gchar *name)
-{
-  __asm__ (
-      "cmpq $-1, %rdi\n\t"
-      "jne .L_mock_logic\n\t"
-      "movq real_dlsym(%rip), %rax\n\t"
-      "jmp *%rax\n\t"
-    ".L_mock_logic:\n\t"
-      "jmp mock_dlsym\n\t"
-  );
-}
-
-__attribute__((used)) static gpointer
-mock_dlsym (gpointer handle, const gchar *name)
-{
-  /* We only mock functions from dlopen handles, everything else is bypassed to
-   * real_dlsym, which should already been handled by the assembly entrypoint above. */
-
-  /* POSIX says that RTLD_DEFAULT handle returns the same no matter who called it.
-   *
-   * > The symbol lookup happens in the normal global scope; that is, a search for
-   * > a symbol using this handle would find the same definition as a direct use of
-   * > this symbol in the program code.
-   *
-   * https://pubs.opengroup.org/onlinepubs/009696799/functions/dlsym.html
-   */
-  if (handle == RTLD_DEFAULT)
-    return real_dlsym (handle, name);
-
-  /* It must've already been handled by mock_dlsym_asm */
-  g_assert (handle != RTLD_NEXT);
-
-  /* It's a dlopen handle */
-
-  gpointer real_func = real_dlsym (handle, name);
-  if (!real_func)
-    return NULL;
-
-  if (mock_dyn_promises)
-    for (guint i = 0; i < mock_dyn_promises->len; i++)
-      {
-        GMockDynPromise *promise = &g_array_index (mock_dyn_promises, GMockDynPromise, i);
-
-        if (g_strcmp0 (promise->func_name, name) == 0)
-          {
-            *promise->user_out_real = real_func;
-            g_array_remove_index (mock_dyn_promises, i);
-            if (i > 0)
-              i--;
-          }
-
-        if (mock_dyn_promises->len == 0)
-          {
-            g_clear_pointer (&mock_dyn_promises, g_array_unref);
-            break;
-          }
-      }
-
-  if G_LIKELY (mock_entries)
-    for (guint i = 0; i < mock_entries->len; i++)
-      {
-        GMockEntry *entry = &g_array_index (mock_entries, GMockEntry, i);
-
-        if (g_strcmp0 (name, entry->func_name) == 0)
-          return entry->func;
-      }
-
-  return real_func;
-}
-
-static int
-phdr_dlsym_patch_cb (struct dl_phdr_info *info, size_t size, gpointer data)
-{
-  Elf64_Dyn *dyn = NULL;
-  Elf64_Rela *rela = NULL;
-  Elf64_Sym *symtab = NULL;
-  gchar *strtab = NULL;
-  size_t plt_rel_sz = 0;
-
-  for (size_t i = 0; i < info->dlpi_phnum; i++)
-    {
-      if (info->dlpi_phdr[i].p_type == PT_DYNAMIC)
-        {
-          dyn = (Elf64_Dyn *) (info->dlpi_addr + info->dlpi_phdr[i].p_vaddr);
-          break;
-        }
-    }
-
-  if (!dyn)
-    return 0;
-
-  for (; dyn->d_tag != DT_NULL; dyn++)
-    {
-      switch (dyn->d_tag)
-        {
-        case DT_JMPREL:
-          {
-            rela = (Elf64_Rela *) (dyn->d_un.d_ptr);
-            break;
-          }
-        case DT_SYMTAB:
-          {
-            symtab = (Elf64_Sym *) (dyn->d_un.d_ptr);
-            break;
-          }
-        case DT_STRTAB:
-          {
-            strtab = (gchar *) (dyn->d_un.d_ptr);
-            break;
-          }
-        case DT_PLTRELSZ:
-          {
-            plt_rel_sz = dyn->d_un.d_val;
-            break;
-          }
-        }
-    }
-
-  if (!rela || !symtab || !strtab)
-    return 0;
-
-  size_t n_relocs = plt_rel_sz / sizeof (Elf64_Rela);
-  for (size_t i = 0; i < n_relocs; i++)
-    {
-      size_t sym_idx = ELF64_R_SYM (rela[i].r_info);
-      gchar *symbol_name = strtab + symtab[sym_idx].st_name;
-      if (g_strcmp0 (symbol_name, "dlsym") == 0)
-        {
-          /* dlsym patching occurs here! */
-
-          static int page_size;
-
-          if (page_size == 0)
-            page_size = sysconf (_SC_PAGESIZE);
-          if (page_size < 0)
-            g_error ("Couldn't get the page size");
-
-          gpointer *got = (gpointer *) (info->dlpi_addr + rela[i].r_offset);
-
-          if (mprotect ((gpointer) (((guintptr) got) & ~(page_size - 1)),
-                        page_size,
-                        PROT_READ | PROT_WRITE))
-            {
-              g_error ("Failed to hook dlsym");
-            }
-
-          if (!real_dlsym)
-            real_dlsym = *got;
-
-          *got = mock_dlsym_asm;
-
-          /* FIXME: Recover the original mprotect flags */
-          /*
-          mprotect ((gpointer) (((guintptr) got) & ~(page_size - 1)),
-                    page_size,
-                    PROT_READ);
-          */
-        }
-    }
-
-  return 0;
-}
-#endif
 
 void
 g_mock_init (int *argc, char ***argv)
@@ -316,6 +134,66 @@ g_mock_init (int *argc, char ***argv)
     {
       needs_reexec = TRUE;
       g_setenv ("DYLD_FORCE_FLAT_NAMESPACE", "1", TRUE);
+    }
+#endif
+
+#if defined(__APPLE__)
+#define PRELOAD_ENV "DYLD_INSERT_LIBRARIES"
+#elif defined(__linux__)
+#define PRELOAD_ENV "LD_PRELOAD"
+#endif
+
+#if defined(__APPLE__) || defined(__linux__)
+  const gchar *preload_libs = g_getenv (PRELOAD_ENV);
+  gchar *new_preload_libs = NULL;
+
+  if (preload_libs)
+    {
+      /* Check if preload_libs contains G_MOCK_PRELOAD_PATH at prefix */
+
+      gboolean needs_prepend_lib = FALSE;
+
+      if (strncmp (preload_libs,
+                   G_MOCK_DL_PRELOAD_PATH,
+                   sizeof (G_MOCK_DL_PRELOAD_PATH) - 1) != 0)
+        {
+          needs_prepend_lib = TRUE;
+        }
+      else
+        {
+          gchar last_char = preload_libs[sizeof (G_MOCK_DL_PRELOAD_PATH) - 1];
+          if (last_char != ':' && last_char != '\0')
+            needs_prepend_lib = TRUE;
+        }
+
+      if (needs_prepend_lib)
+        {
+          needs_reexec = TRUE;
+
+          size_t new_size = strlen (preload_libs) + sizeof (G_MOCK_DL_PRELOAD_PATH) + 1;
+
+          new_preload_libs = (gchar *) g_malloc (new_size);
+
+          memcpy (new_preload_libs,
+                  G_MOCK_DL_PRELOAD_PATH,
+                  sizeof (G_MOCK_DL_PRELOAD_PATH) - 1);
+          new_preload_libs[sizeof (G_MOCK_DL_PRELOAD_PATH) - 1] = ':';
+          memcpy (new_preload_libs + sizeof (G_MOCK_DL_PRELOAD_PATH),
+                  preload_libs,
+                  new_size - sizeof (G_MOCK_DL_PRELOAD_PATH));
+        }
+    }
+  else
+    {
+      needs_reexec = TRUE;
+      new_preload_libs = G_MOCK_DL_PRELOAD_PATH;
+    }
+
+  if (new_preload_libs)
+    {
+      g_setenv (PRELOAD_ENV, new_preload_libs, TRUE);
+      if (preload_libs)
+        g_free (new_preload_libs);
     }
 #endif
 
@@ -350,15 +228,15 @@ g_mock_add_full (gpointer func, const gchar *func_name)
   g_return_if_fail (func != NULL);
   g_return_if_fail (func_name != NULL && func_name[0] != '\0');
 
-  if G_UNLIKELY (!mock_entries)
-    mock_entries = g_array_sized_new (FALSE, FALSE, sizeof (GMockEntry), 1);
+  if G_UNLIKELY (!_g_mock_entries)
+    _g_mock_entries = g_array_sized_new (FALSE, FALSE, sizeof (GMockEntry), 1);
 
   GMockEntry entry = {
     .func = func,
     .func_name = g_strdup (func_name),
   };
 
-  g_array_append_val (mock_entries, entry);
+  g_array_append_val (_g_mock_entries, entry);
 }
 
 #if defined(G_PLATFORM_WIN32)
@@ -367,12 +245,12 @@ static gpointer WINAPI
 mock_GetProcAddress (HMODULE module, gchar *func_name)
 {
   gpointer real_func = real_GetProcAddress (module, func_name);
-  if (!real_func || G_UNLIKELY (!mock_entries))
+  if (!real_func || G_UNLIKELY (!_g_mock_entries))
     return real_func;
 
-  for (guint i = 0; i < mock_entries->len; i++)
+  for (guint i = 0; i < _g_mock_entries->len; i++)
     {
-      GMockEntry *entry = &g_array_index (mock_entries, GMockEntry, i);
+      GMockEntry *entry = &g_array_index (_g_mock_entries, GMockEntry, i);
 
       if (g_strcmp0 (entry->func_name, func_name) == 0)
         return entry->func;
@@ -389,7 +267,7 @@ g_mock_commit (void)
     return;
 
 #if defined(G_PLATFORM_WIN32)
-  if G_LIKELY (mock_entries)
+  if G_LIKELY (_g_mock_entries)
     {
       g_mock_add_full (mock_GetProcAddress, "GetProcAddress");
       g_mock_get_real ("GetProcAddress", (gpointer *) &real_GetProcAddress);
@@ -399,7 +277,7 @@ g_mock_commit (void)
   committed = TRUE;
 
 #if defined(G_PLATFORM_WIN32)
-  if G_UNLIKELY (!mock_entries)
+  if G_UNLIKELY (!_g_mock_entries)
     return;
 
   DWORD modules_size, modules_size2;
@@ -444,9 +322,9 @@ g_mock_commit (void)
                   IMAGE_IMPORT_BY_NAME *import_by_name = (IMAGE_IMPORT_BY_NAME *) (base_addr + name_thunk->u1.AddressOfData);
                   const gchar *imp_name = (const gchar *) import_by_name->Name;
 
-                  for (guint i = 0; i < mock_entries->len; i++)
+                  for (guint i = 0; i < _g_mock_entries->len; i++)
                     {
-                      GMockEntry *entry = &g_array_index (mock_entries, GMockEntry, i);
+                      GMockEntry *entry = &g_array_index (_g_mock_entries, GMockEntry, i);
 
                       if (g_strcmp0 (imp_name, entry->func_name) == 0)
                         {
@@ -470,22 +348,20 @@ g_mock_commit (void)
 
   /* Check mocks were applied */
 
-  for (guint i = 0; i < mock_entries->len; i++)
+  for (guint i = 0; i < _g_mock_entries->len; i++)
     {
-      GMockEntry *entry = &g_array_index (mock_entries, GMockEntry, i);
+      GMockEntry *entry = &g_array_index (_g_mock_entries, GMockEntry, i);
 
       if (!entry->applied)
         G_WARN_MOCK_UNAPPLIED (entry->func_name);
     }
 
-  /* Leak mock_entries, due to it being used by mock_GetProcAddress
+  /* Leak _g_mock_entries, due to it being used by mock_GetProcAddress
    * and mock_dlsym.
    */
-  /* g_clear_pointer (&mock_entries, g_array_unref); */
+  /* g_clear_pointer (&_g_mock_entries, g_array_unref); */
 #elif defined(__linux__)
-  dl_iterate_phdr (phdr_dlsym_patch_cb, NULL);
-  if (!real_dlsym)
-    g_error ("Couldn't patch dlsym");
+  _g_mock_patch_got_linux ();
 #endif
 }
 
@@ -515,10 +391,10 @@ _g_mock_create_dyn_promise (const gchar *func_name, gpointer *out_real)
 {
   *out_real = real_not_found_dynamic;
 
-  if G_UNLIKELY (!mock_dyn_promises)
+  if G_UNLIKELY (!_g_mock_dyn_promises)
     {
-      mock_dyn_promises = g_array_sized_new (FALSE, FALSE, sizeof (GMockDynPromise), 1);
-      g_array_set_clear_func (mock_dyn_promises,
+      _g_mock_dyn_promises = g_array_sized_new (FALSE, FALSE, sizeof (GMockDynPromise), 1);
+      g_array_set_clear_func (_g_mock_dyn_promises,
                               (GDestroyNotify) mock_dyn_promise_element_clear);
     }
 
@@ -526,7 +402,7 @@ _g_mock_create_dyn_promise (const gchar *func_name, gpointer *out_real)
     .func_name = g_strdup (func_name),
     .user_out_real = out_real,
   };
-  g_array_append_val (mock_dyn_promises, new_promise);
+  g_array_append_val (_g_mock_dyn_promises, new_promise);
 }
 
 #if defined(G_OS_WIN32)
