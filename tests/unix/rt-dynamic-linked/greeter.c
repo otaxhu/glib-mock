@@ -11,7 +11,7 @@ greet (FILE *file)
 
   if (!dyn_my_fwrite)
     {
-      libmy_fwrite = dlopen (g_getenv ("LIB_MY_FWRITE_PATH"), RTLD_NOW);
+      libmy_fwrite = dlopen (g_getenv ("LIB_MY_FWRITE_PATH"), RTLD_LAZY);
       if (!libmy_fwrite)
         g_error ("dlopen failed to open libmy-fwrite: dlerror returned: %s",
                  dlerror ());
