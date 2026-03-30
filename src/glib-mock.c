@@ -116,6 +116,9 @@ g_mock_is_committed (void)
 }
 
 #if defined(__linux__)
+static gpointer (*real_dlopen) (const gchar *path, int flags);
+static gpointer mock_dlopen (const gchar *path, int flags);
+
 static gpointer (*real_dlsym) (gpointer handle, const gchar *name);
 
 /* Entrypoint written in asm for mock_dlsym. */
@@ -193,6 +196,8 @@ mock_dlsym (gpointer handle, const gchar *name)
 static int
 phdr_dlsym_patch_cb (struct dl_phdr_info *info, size_t size, gpointer data)
 {
+  /* The function name is misleading, it currently patches `dlsym` and `dlopen` */
+
   Elf64_Dyn *dyn = NULL;
   Elf64_Rela *rela = NULL;
   Elf64_Sym *symtab = NULL;
@@ -246,18 +251,21 @@ phdr_dlsym_patch_cb (struct dl_phdr_info *info, size_t size, gpointer data)
     {
       size_t sym_idx = ELF64_R_SYM (rela[i].r_info);
       gchar *symbol_name = strtab + symtab[sym_idx].st_name;
+
+      static int page_size;
+
+      if (page_size == 0)
+        {
+          page_size = sysconf (_SC_PAGESIZE);
+          if (page_size <= 0)
+            g_error ("Couldn't get the page size");
+        }
+
+      gpointer *got = (gpointer *) (info->dlpi_addr + rela[i].r_offset);
+
       if (g_strcmp0 (symbol_name, "dlsym") == 0)
         {
           /* dlsym patching occurs here! */
-
-          static int page_size;
-
-          if (page_size == 0)
-            page_size = sysconf (_SC_PAGESIZE);
-          if (page_size < 0)
-            g_error ("Couldn't get the page size");
-
-          gpointer *got = (gpointer *) (info->dlpi_addr + rela[i].r_offset);
 
           if (mprotect ((gpointer) (((guintptr) got) & ~(page_size - 1)),
                         page_size,
@@ -278,9 +286,55 @@ phdr_dlsym_patch_cb (struct dl_phdr_info *info, size_t size, gpointer data)
                     PROT_READ);
           */
         }
+      else if (g_strcmp0(symbol_name, "dlopen") == 0)
+        {
+          /* dlopen patching occurs here! */
+
+          if (mprotect ((gpointer) (((guintptr) got) & ~(page_size - 1)),
+                        page_size,
+                        PROT_READ | PROT_WRITE))
+            {
+              g_error ("Failed to hook dlopen");
+            }
+
+          if (!real_dlopen)
+            real_dlopen = *got;
+
+          *got = mock_dlopen;
+
+          /* FIXME: Recover the original mprotect flags */
+          /*
+          mprotect ((gpointer) (((guintptr) got) & ~(page_size - 1)),
+                    page_size,
+                    PROT_READ);
+          */
+        }
     }
 
   return 0;
+}
+
+static gpointer
+mock_dlopen (const gchar *path, int flags)
+{
+#if defined(RTLD_NOLOAD)
+  /* (optimization) Don't patch if the shared object it's already loaded,
+   * because we already patched it and all of its dependencies recursively.
+   */
+  gpointer real_so = real_dlopen (path, flags | RTLD_NOLOAD);
+  if (real_so)
+    return real_so;
+  real_so = real_dlopen (path, flags & ~RTLD_NOLOAD);
+#else
+  gpointer real_so = real_dlopen (path, flags);
+#endif
+  if (!real_so)
+    return NULL;
+
+  /* FIXME: Very expensive operation, mainly on programs that import a lot of shared objects. */
+  dl_iterate_phdr (phdr_dlsym_patch_cb, NULL);
+
+  return real_so;
 }
 #endif
 
@@ -525,6 +579,8 @@ g_mock_commit (void)
   dl_iterate_phdr (phdr_dlsym_patch_cb, NULL);
   if (!real_dlsym)
     g_error ("Couldn't patch dlsym");
+  if (!real_dlopen)
+    g_error ("Couldn't patch dlopen");
 #endif
 }
 
