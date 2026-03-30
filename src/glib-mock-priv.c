@@ -205,5 +205,7 @@ void
 _g_mock_patch_got_linux (void)
 {
   dl_iterate_phdr (phdr_patch_cb, NULL);
+  if (!_g_mock_real_dlsym)
+    g_error ("Couldn't patch dlsym");
 }
 #endif
