@@ -1,8 +1,6 @@
-# Build glib-mock-priv and darwin-dl-preload
+# Build glib-mock-priv
 
-darwin_dl_preload_path = ''
-
-if host_system == 'darwin'
+if host_system == 'darwin' or host_system == 'linux'
   libglib_mock_priv = shared_library(
     'glib-mock-priv',
     'glib-mock-priv.c',
@@ -10,7 +8,22 @@ if host_system == 'darwin'
     dependencies: libglib_dep,
     install: true,
   )
+else
+  # (optimization) Since darwin/linux-dl-preload aren't being built, there is no need
+  # for a shared library.
+  libglib_mock_priv = static_library(
+    'glib-mock-priv',
+    'glib-mock-priv.c',
+    include_directories: '.',
+    dependencies: libglib_dep,
+  )
+endif
 
+dl_preload_path = ''
+
+# Build darwin-dl-preload
+
+if host_system == 'darwin'
   libdarwin_dl_preload = shared_library(
     'darwin-dl-preload',
     'darwin-dl-preload.c',
@@ -21,24 +34,36 @@ if host_system == 'darwin'
   )
 
   if profile == 'installing'
-    darwin_dl_preload_path = libdir / 'lib' + libdarwin_dl_preload.name() + '.dylib'
+    dl_preload_path = libdir / 'lib' + libdarwin_dl_preload.name() + '.dylib'
   elif profile == 'development'
-    darwin_dl_preload_path = libdarwin_dl_preload.full_path()
+    dl_preload_path = libdarwin_dl_preload.full_path()
   endif
-else
-  # (optimization) Since darwin-dl-preload isn't being built, there is no need
-  # for a shared library.
-  libglib_mock_priv = static_library(
-    'glib-mock-priv',
-    'glib-mock-priv.c',
-    include_directories: '.',
-    dependencies: libglib_dep,
-  )
 endif
+
+# Build linux-dl-preload
+
+if host_system == 'linux'
+  liblinux_dl_preload = shared_library(
+    'linux-dl-preload',
+    'linux-dl-preload.c',
+    include_directories: '.',
+    dependencies: [libglib_dep, libdl_dep],
+    install: true,
+    link_with: libglib_mock_priv,
+  )
+
+  if profile == 'installing'
+    dl_preload_path = libdir / 'lib' + liblinux_dl_preload.name() + '.so'
+  elif profile == 'development'
+    dl_preload_path = liblinux_dl_preload.full_path()
+  endif
+endif
+
+# Build config.h
 
 cfg_config_h = configuration_data()
 
-cfg_config_h.set_quoted('darwin-dl-preload-path', darwin_dl_preload_path)
+cfg_config_h.set_quoted('dl-preload-path', dl_preload_path)
 
 configure_file(
   input: 'config.h.in',

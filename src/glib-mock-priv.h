@@ -37,3 +37,10 @@ typedef struct
 
 extern GArray *_g_mock_entries;
 extern GArray *_g_mock_dyn_promises;
+
+#if defined(__linux__)
+extern gpointer (*_g_mock_real_dlsym) (gpointer handle, const gchar *name);
+
+void
+_g_mock_patch_got_linux (void);
+#endif
