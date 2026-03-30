@@ -14,4 +14,7 @@ test(
     dependencies: libglib_mock_dep,
     link_with: libgreeter,
   ),
+  env: {
+    'LIB_MY_FWRITE_PATH': libmy_fwrite.full_path(),
+  },
 )
