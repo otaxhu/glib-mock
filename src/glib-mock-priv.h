@@ -26,7 +26,6 @@ typedef struct
 {
   gpointer func;
   const gchar *func_name;
-  gboolean applied;
 } GMockEntry;
 
 typedef struct
@@ -37,6 +36,12 @@ typedef struct
 
 extern GArray *_g_mock_entries;
 extern GArray *_g_mock_dyn_promises;
+
+void
+_g_mock_dyn_promise_resolve (const gchar *func_name, gpointer real_func);
+
+gpointer
+_g_mock_entry_find_by_name (const gchar *func_name);
 
 #if defined(__linux__)
 extern gpointer (*_g_mock_real_dlsym) (gpointer handle, const gchar *name);

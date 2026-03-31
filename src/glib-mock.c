@@ -240,43 +240,61 @@ g_mock_add_full (gpointer func, const gchar *func_name)
 }
 
 #if defined(G_PLATFORM_WIN32)
-static gpointer (WINAPI *real_GetProcAddress) (HMODULE module, gchar *func_name);
-static gpointer WINAPI
-mock_GetProcAddress (HMODULE module, gchar *func_name)
+static void
+patch_iat (HMODULE module)
 {
-  gpointer real_func = real_GetProcAddress (module, func_name);
-  if (!real_func || G_UNLIKELY (!_g_mock_entries))
-    return real_func;
+  g_return_if_fail (module != NULL);
 
-  for (guint i = 0; i < _g_mock_entries->len; i++)
-    {
-      GMockEntry *entry = &g_array_index (_g_mock_entries, GMockEntry, i);
-
-      if (g_strcmp0 (entry->func_name, func_name) == 0)
-        return entry->func;
-    }
-
-  return real_func;
-}
-#endif
-
-void
-g_mock_commit (void)
-{
-  if G_UNLIKELY (g_mock_is_committed ())
+  /* Early return if there is nothing to patch */
+  if G_UNLIKELY (!_g_mock_entries)
     return;
 
-#if defined(G_PLATFORM_WIN32)
-  if G_LIKELY (_g_mock_entries)
+  guintptr base_addr = (guintptr) module;
+
+  IMAGE_DOS_HEADER *dos_header = (IMAGE_DOS_HEADER *) base_addr;
+
+  IMAGE_NT_HEADERS *nt_headers = (IMAGE_NT_HEADERS *) (base_addr + dos_header->e_lfanew);
+  IMAGE_DATA_DIRECTORY import_dir = nt_headers->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT];
+  if (import_dir.VirtualAddress == 0)
+    return;
+
+  IMAGE_IMPORT_DESCRIPTOR *import_desc = (IMAGE_IMPORT_DESCRIPTOR *) (base_addr + import_dir.VirtualAddress);
+
+  while (import_desc->Name)
     {
-      g_mock_add_full (mock_GetProcAddress, "GetProcAddress");
-      g_mock_get_real ("GetProcAddress", (gpointer *) &real_GetProcAddress);
+      IMAGE_THUNK_DATA *name_thunk = (IMAGE_THUNK_DATA *) (base_addr + import_desc->OriginalFirstThunk);
+      IMAGE_THUNK_DATA *addr_thunk = (IMAGE_THUNK_DATA *) (base_addr + import_desc->FirstThunk);
+
+      while (name_thunk->u1.AddressOfData)
+        {
+          /* We can't hook into ordinal imports */
+          if (!(name_thunk->u1.Ordinal & IMAGE_ORDINAL_FLAG))
+            {
+              IMAGE_IMPORT_BY_NAME *import_by_name = (IMAGE_IMPORT_BY_NAME *) (base_addr + name_thunk->u1.AddressOfData);
+              const gchar *imp_name = (const gchar *) import_by_name->Name;
+
+              gpointer mock_func = _g_mock_entry_find_by_name (imp_name);
+              if (mock_func)
+                {
+                  DWORD old_protect;
+                  if (!VirtualProtect (&addr_thunk->u1.Function, sizeof (gpointer), PAGE_READWRITE, &old_protect))
+                    G_WIN32_API_FAILED (VirtualProtect);
+
+                  addr_thunk->u1.Function = (ULONG_PTR) mock_func;
+                  VirtualProtect (&addr_thunk->u1.Function, sizeof (gpointer), old_protect, &old_protect);
+                }
+            }
+          name_thunk++;
+          addr_thunk++;
+        }
+      import_desc++;
     }
-#endif
+}
 
-  committed = TRUE;
-
-#if defined(G_PLATFORM_WIN32)
+static inline void
+patch_all_iat (void)
+{
+  /* Early return if there is nothing to patch */
   if G_UNLIKELY (!_g_mock_entries)
     return;
 
@@ -297,69 +315,118 @@ g_mock_commit (void)
     g_error ("EnumProcessModules returned different sizes of modules on the second call");
 
   for (int i = 0; i < modules_size / sizeof (HMODULE); i++)
+    patch_iat (modules[i]);
+}
+
+static gpointer (WINAPI *real_GetProcAddress) (HMODULE module, gchar *func_name);
+static gpointer WINAPI
+mock_GetProcAddress (HMODULE module, gchar *func_name)
+{
+  gpointer real_func = real_GetProcAddress (module, func_name);
+  if (!real_func)
+    return NULL;
+
+  _g_mock_dyn_promise_resolve (func_name, real_func);
+
+  gpointer mock_func = _g_mock_entry_find_by_name (func_name);
+  if (mock_func)
+    return mock_func;
+
+  return real_func;
+}
+
+static gpointer (WINAPI *real_LoadLibraryA) (const gchar *path);
+static gpointer (WINAPI *real_LoadLibraryW) (const gunichar2 *path);
+static gpointer (WINAPI *real_LoadLibraryExA) (const gchar *path,
+                                               HANDLE _unused,
+                                               DWORD flags);
+static gpointer (WINAPI *real_LoadLibraryExW) (const gunichar2 *path,
+                                               HANDLE _unused,
+                                               DWORD flags);
+
+static gpointer WINAPI
+mock_LoadLibraryA (const gchar *path)
+{
+  HMODULE real_lib = real_LoadLibraryA (path);
+  if (!real_lib)
+    return NULL;
+
+  patch_iat (real_lib);
+
+  return real_lib;
+}
+
+static gpointer WINAPI
+mock_LoadLibraryW (const gunichar2 *path)
+{
+  HMODULE real_lib = real_LoadLibraryW (path);
+  if (!real_lib)
+    return NULL;
+
+  patch_iat (real_lib);
+
+  return real_lib;
+}
+
+static gpointer WINAPI
+mock_LoadLibraryExA (const gchar *path, HANDLE _unused, DWORD flags)
+{
+  HMODULE real_lib = real_LoadLibraryExA (path, _unused, flags);
+  if (!real_lib)
+    return NULL;
+
+  /* FIXME: Don't patch libraries that are loaded as data-only */
+
+  patch_iat (real_lib);
+
+  return real_lib;
+}
+
+static gpointer WINAPI
+mock_LoadLibraryExW (const gunichar2 *path, HANDLE _unused, DWORD flags)
+{
+  HMODULE real_lib = real_LoadLibraryExW (path, _unused, flags);
+  if (!real_lib)
+    return NULL;
+
+  /* FIXME: Don't patch libraries that are loaded as data-only */
+
+  patch_iat (real_lib);
+
+  return real_lib;
+}
+#endif
+
+void
+g_mock_commit (void)
+{
+  if G_UNLIKELY (g_mock_is_committed ())
+    return;
+
+#if defined(G_PLATFORM_WIN32)
+  if G_LIKELY (_g_mock_entries)
     {
-      guintptr base_addr = (guintptr) modules[i];
+      g_mock_add_full (mock_GetProcAddress, "GetProcAddress");
+      g_mock_get_real ("GetProcAddress", &real_GetProcAddress);
 
-      IMAGE_DOS_HEADER *dos_header = (IMAGE_DOS_HEADER *) base_addr;
+      g_mock_add_full (mock_LoadLibraryA, "LoadLibraryA");
+      g_mock_get_real ("LoadLibraryA", &real_LoadLibraryA);
 
-      IMAGE_NT_HEADERS *nt_headers = (IMAGE_NT_HEADERS *) (base_addr + dos_header->e_lfanew);
-      IMAGE_DATA_DIRECTORY import_dir = nt_headers->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT];
-      if (import_dir.VirtualAddress == 0)
-        continue;
+      g_mock_add_full (mock_LoadLibraryW, "LoadLibraryW");
+      g_mock_get_real ("LoadLibraryW", &real_LoadLibraryW);
 
-      IMAGE_IMPORT_DESCRIPTOR *import_desc = (IMAGE_IMPORT_DESCRIPTOR *) (base_addr + import_dir.VirtualAddress);
+      g_mock_add_full (mock_LoadLibraryExA, "LoadLibraryExA");
+      g_mock_get_real ("LoadLibraryExA", &real_LoadLibraryExA);
 
-      while (import_desc->Name)
-        {
-          IMAGE_THUNK_DATA *name_thunk = (IMAGE_THUNK_DATA *) (base_addr + import_desc->OriginalFirstThunk);
-          IMAGE_THUNK_DATA *addr_thunk = (IMAGE_THUNK_DATA *) (base_addr + import_desc->FirstThunk);
-
-          while (name_thunk->u1.AddressOfData)
-            {
-              /* We can't hook into ordinal imports */
-              if (!(name_thunk->u1.Ordinal & IMAGE_ORDINAL_FLAG))
-                {
-                  IMAGE_IMPORT_BY_NAME *import_by_name = (IMAGE_IMPORT_BY_NAME *) (base_addr + name_thunk->u1.AddressOfData);
-                  const gchar *imp_name = (const gchar *) import_by_name->Name;
-
-                  for (guint i = 0; i < _g_mock_entries->len; i++)
-                    {
-                      GMockEntry *entry = &g_array_index (_g_mock_entries, GMockEntry, i);
-
-                      if (g_strcmp0 (imp_name, entry->func_name) == 0)
-                        {
-                          DWORD old_protect;
-                          if (!VirtualProtect (&addr_thunk->u1.Function, sizeof (gpointer), PAGE_READWRITE, &old_protect))
-                            G_WIN32_API_FAILED (VirtualProtect);
-
-                          addr_thunk->u1.Function = (ULONG_PTR) entry->func;
-                          VirtualProtect (&addr_thunk->u1.Function, sizeof (gpointer), old_protect, &old_protect);
-
-                          entry->applied = TRUE;
-                        }
-                    }
-                }
-              name_thunk++;
-              addr_thunk++;
-            }
-          import_desc++;
-        }
+      g_mock_add_full (mock_LoadLibraryExW, "LoadLibraryExW");
+      g_mock_get_real ("LoadLibraryExW", &real_LoadLibraryExW);
     }
+#endif
 
-  /* Check mocks were applied */
+  committed = TRUE;
 
-  for (guint i = 0; i < _g_mock_entries->len; i++)
-    {
-      GMockEntry *entry = &g_array_index (_g_mock_entries, GMockEntry, i);
-
-      if (!entry->applied)
-        G_WARN_MOCK_UNAPPLIED (entry->func_name);
-    }
-
-  /* Leak _g_mock_entries, due to it being used by mock_GetProcAddress
-   * and mock_dlsym.
-   */
-  /* g_clear_pointer (&_g_mock_entries, g_array_unref); */
+#if defined(G_PLATFORM_WIN32)
+  patch_all_iat ();
 #elif defined(__linux__)
   _g_mock_patch_got_linux ();
 #endif
