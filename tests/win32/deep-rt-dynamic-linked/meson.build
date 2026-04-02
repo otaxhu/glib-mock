@@ -1,4 +1,4 @@
-libgreeter = library(
+libgreeter = shared_library(
   'greeter',
   'greeter.c',
   include_directories: '.',
@@ -6,15 +6,15 @@ libgreeter = library(
 )
 
 test(
-  'rt-dynamic-linked',
+  'deep-rt-dynamic-linked',
   executable(
-    'rt-dynamic-linked',
+    'deep-rt-dynamic-linked',
     'main.c',
     include_directories: '.',
     dependencies: libglib_mock_dep,
-    link_with: libgreeter,
   ),
   env: {
     'LIB_MY_FWRITE_PATH': libmy_fwrite.full_path(),
+    'LIB_GREETER_PATH': libgreeter.full_path(),
   },
 )
