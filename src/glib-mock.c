@@ -249,6 +249,48 @@ patch_iat (HMODULE module)
   if G_UNLIKELY (!_g_mock_entries)
     return;
 
+  WCHAR module_name_utf16[MAX_PATH + 1];
+  DWORD n_read = GetModuleFileName (module, (WCHAR *) &module_name_utf16, MAX_PATH + 1);
+  if (n_read > 0 && n_read < MAX_PATH + 1)
+    {
+      /* NOTE: If you find another system DLL that may have the problem of having
+       * trampolines that uses its IAT, and you made sure is not defined as a
+       * forwarded export, please add it here.
+       */
+
+      gchar *problematic_dlls[] = {
+        /* Cannot patch kernel32's IAT, it's full of trampolines that jumps to
+          * its IAT entries, if we do it, then we would have infinite recursion problems.
+          *
+          * See: https://gitlab.gnome.org/otaxhu/glib-mock/-/merge_requests/5#note_2724536
+          */
+        "c:\\windows\\system32\\kernel32.dll",
+      };
+
+      gchar *module_name_utf8 = g_utf16_to_utf8 (module_name_utf16, -1, NULL, NULL, NULL);
+      g_assert (module_name_utf8 != NULL);
+
+      gboolean can_patch = TRUE;
+
+      for (size_t i = 0; i < G_N_ELEMENTS (problematic_dlls); i++)
+        {
+          gchar *dll = problematic_dlls[i];
+
+          if (g_ascii_strcasecmp (module_name_utf8, dll) == 0)
+            {
+              can_patch = FALSE;
+              break;
+            }
+        }
+
+      g_free (module_name_utf8);
+
+      if (!can_patch)
+        return;
+    }
+  else
+    g_warning ("Couldn't get the DLL filename: '%ld' error code", GetLastError ());
+
   guintptr base_addr = (guintptr) module;
 
   IMAGE_DOS_HEADER *dos_header = (IMAGE_DOS_HEADER *) base_addr;
