@@ -32,6 +32,50 @@
 GArray *_g_mock_entries;
 GArray *_g_mock_dyn_promises;
 
+void
+_g_mock_dyn_promise_resolve (const gchar *func_name, gpointer real_func)
+{
+  g_return_if_fail (func_name != NULL);
+  g_return_if_fail (real_func != NULL);
+
+  if (_g_mock_dyn_promises)
+    for (guint i = 0; i < _g_mock_dyn_promises->len; i++)
+      {
+        GMockDynPromise *promise = &g_array_index (_g_mock_dyn_promises, GMockDynPromise, i);
+
+        if (g_strcmp0 (promise->func_name, func_name) == 0)
+          {
+            *promise->user_out_real = real_func;
+            g_array_remove_index (_g_mock_dyn_promises, i);
+            if (i > 0)
+              i--;
+          }
+
+        if (_g_mock_dyn_promises->len == 0)
+          {
+            g_clear_pointer (&_g_mock_dyn_promises, g_array_unref);
+            break;
+          }
+      }
+}
+
+gpointer
+_g_mock_entry_find_by_name (const gchar *func_name)
+{
+  g_return_val_if_fail (func_name != NULL, NULL);
+
+  if G_LIKELY (_g_mock_entries)
+    for (guint i = 0; i < _g_mock_entries->len; i++)
+      {
+        GMockEntry *entry = &g_array_index (_g_mock_entries, GMockEntry, i);
+
+        if (g_strcmp0 (func_name, entry->func_name) == 0)
+          return entry->func;
+      }
+
+  return NULL;
+}
+
 #if defined(__linux__)
 gpointer (*_g_mock_real_dlsym) (gpointer handle, const gchar *name);
 
@@ -73,34 +117,11 @@ mock_dlsym (gpointer handle, const gchar *name)
   if (!real_func)
     return NULL;
 
-  if (_g_mock_dyn_promises)
-    for (guint i = 0; i < _g_mock_dyn_promises->len; i++)
-      {
-        GMockDynPromise *promise = &g_array_index (_g_mock_dyn_promises, GMockDynPromise, i);
+  _g_mock_dyn_promise_resolve (name, real_func);
 
-        if (g_strcmp0 (promise->func_name, name) == 0)
-          {
-            *promise->user_out_real = real_func;
-            g_array_remove_index (_g_mock_dyn_promises, i);
-            if (i > 0)
-              i--;
-          }
-
-        if (_g_mock_dyn_promises->len == 0)
-          {
-            g_clear_pointer (&_g_mock_dyn_promises, g_array_unref);
-            break;
-          }
-      }
-
-  if G_LIKELY (_g_mock_entries)
-    for (guint i = 0; i < _g_mock_entries->len; i++)
-      {
-        GMockEntry *entry = &g_array_index (_g_mock_entries, GMockEntry, i);
-
-        if (g_strcmp0 (name, entry->func_name) == 0)
-          return entry->func;
-      }
+  gpointer mock_func = _g_mock_entry_find_by_name (name);
+  if (mock_func)
+    return mock_func;
 
   return real_func;
 }

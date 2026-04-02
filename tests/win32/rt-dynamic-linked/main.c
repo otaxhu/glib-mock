@@ -10,24 +10,24 @@ static struct
 
 static gpointer (WINAPI *real_GetProcAddress) (HMODULE module, gchar *func_name);
 
-static size_t (*real_fwrite) (const void *buf, size_t size, size_t count, FILE *file);
-size_t fwrite (const void *buf, size_t size, size_t count, FILE *file) /* Mock */
+static size_t (*real_my_fwrite) (const void *buf, size_t size, size_t count, FILE *file);
+size_t my_fwrite (const void *buf, size_t size, size_t count, FILE *file) /* Mock */
 {
   if (mock_state.must_mock)
     {
-      real_fwrite ("Mocked!\n", 1, sizeof ("Mocked!\n"), file);
+      real_my_fwrite ("Mocked!\n", 1, sizeof ("Mocked!\n"), file);
 
       return count;
     }
 
-  return real_fwrite (buf, size, count, file);
+  return real_my_fwrite (buf, size, count, file);
 }
 
 static void
 test_rt_dynamic_linked_other_module (void)
 {
   /* Call greeter, which in turn should call the mocked GetProcAddress that returns
-   * the fwrite mocked.
+   * the my_fwrite mocked.
    */
 
   const gchar expected_contents[] =
@@ -63,16 +63,21 @@ test_rt_dynamic_linked_other_module (void)
 static void
 test_rt_dynamic_linked (void)
 {
-  g_assert_true (*real_GetProcAddress != GetProcAddress);
+  g_assert_true ((gpointer) real_GetProcAddress != (gpointer) GetProcAddress);
 
-  HMODULE ucrt_stdio = LoadLibrary (L"api-ms-win-crt-stdio-l1-1-0.dll");
-  g_assert_true (ucrt_stdio != NULL);
+  const gchar *libmy_fwrite_utf8 = g_getenv ("LIB_MY_FWRITE_PATH");
+  g_assert_nonnull (libmy_fwrite_utf8);
+  WCHAR *libmy_fwrite_utf16 = g_utf8_to_utf16 (libmy_fwrite_utf8, -1, NULL, NULL, NULL);
+  g_assert_nonnull (libmy_fwrite_utf16);
+  HMODULE libmy_fwrite = LoadLibrary (libmy_fwrite_utf16);
+  g_free (libmy_fwrite_utf16);
+  g_assert_nonnull (libmy_fwrite);
 
-  gpointer real_func = real_GetProcAddress (ucrt_stdio, "fwrite");
-  g_assert_true (real_func != NULL);
+  gpointer real_func = real_GetProcAddress (libmy_fwrite, "my_fwrite");
+  g_assert_nonnull (real_func);
 
-  gpointer mock_func = GetProcAddress (ucrt_stdio, "fwrite");
-  g_assert_true (mock_func != NULL);
+  gpointer mock_func = GetProcAddress (libmy_fwrite, "my_fwrite");
+  g_assert_nonnull (mock_func);
 
   g_assert_true (real_func != mock_func);
 }
@@ -82,8 +87,8 @@ int main (int argc, char **argv)
   mock_state.must_mock = FALSE;
 
   g_mock_init (&argc, &argv);
-  g_mock_add (fwrite);
-  g_mock_get_real ("fwrite", &real_fwrite);
+  g_mock_add (my_fwrite);
+  g_mock_get_real ("my_fwrite", &real_my_fwrite);
 
   g_mock_get_real ("GetProcAddress", (gpointer *) &real_GetProcAddress);
 

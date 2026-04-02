@@ -5,19 +5,20 @@
 
 void greet (FILE *file)
 {
-  static HMODULE stdio_ucrt;
+  static HMODULE my_fwrite_handle;
   static size_t (*dyn_fwrite) (const void *buf, size_t size, size_t count, FILE *file);
 
-  if (!stdio_ucrt)
+  if (!my_fwrite_handle)
     {
-      /* See: https://gist.github.com/njsmith/08b1e52b65ea90427bfd */
-      stdio_ucrt = LoadLibrary (L"api-ms-win-crt-stdio-l1-1-0.dll");
-      if (!stdio_ucrt)
-        g_error ("api-ms-win-crt-stdio-l1-1-0.dll couldn't be loaded");
+      gunichar2 *my_fwrite_path = g_utf8_to_utf16 (g_getenv ("LIB_MY_FWRITE_PATH"),
+                                                   -1, NULL, NULL, NULL);
+      g_assert_nonnull (my_fwrite_path);
+      my_fwrite_handle = LoadLibrary (my_fwrite_path);
+      g_free (my_fwrite_path);
+      g_assert_nonnull (my_fwrite_handle);
 
-      dyn_fwrite = (gpointer) GetProcAddress (stdio_ucrt, "fwrite");
-      if (!dyn_fwrite)
-        g_error ("fwrite couldn't be loaded");
+      dyn_fwrite = (gpointer) GetProcAddress (my_fwrite_handle, "my_fwrite");
+      g_assert_nonnull (dyn_fwrite);
     }
 
   dyn_fwrite ("Greetings!\n", 1, sizeof ("Greetings!\n") - 1, file);

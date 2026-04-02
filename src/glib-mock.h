@@ -76,6 +76,11 @@ _g_mock_create_dyn_promise (const gchar *func_name, gpointer *out_real);
   } \
   G_STMT_END
 
+#elif defined(G_OS_WIN32)
+
+#define g_mock_get_real(func_name, out_real) \
+  (g_mock_get_real) ((const gchar *) (func_name), (gpointer *) (out_real))
+
 #endif
 
 G_END_DECLS
