@@ -8,6 +8,7 @@ static struct {
 } mock_state;
 
 static size_t (*real_fwrite) (const void *buf, size_t size, size_t count, FILE *file);
+G_MOCK_GET_REAL_SYSTEM ("fwrite", &real_fwrite);
 size_t fwrite (const void *buf, size_t size, size_t count, FILE *file) /* Mock */
 {
   if (mock_state.must_fail)
@@ -83,7 +84,6 @@ main (int argc, char **argv)
   g_mock_init (&argc, &argv);
 
   g_mock_add (fwrite);
-  g_mock_get_real ("fwrite", &real_fwrite);
 
   g_mock_commit ();
 
