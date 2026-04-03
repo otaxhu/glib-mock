@@ -83,4 +83,11 @@ _g_mock_create_dyn_promise (const gchar *func_name, gpointer *out_real);
 
 #endif
 
+#define G_MOCK_GET_REAL_SYSTEM(func_name, system_out_real) \
+  __attribute__((constructor)) static void G_PASTE (_g_mock_get_real_system_initializer_, __COUNTER__) (void) \
+  { \
+    gpointer *_system_out_real = (gpointer *) (system_out_real); \
+    g_mock_get_real ((const gchar *) (func_name), _system_out_real); \
+  }
+
 G_END_DECLS
