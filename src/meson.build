@@ -24,8 +24,8 @@ dl_preload_path = ''
 # Build darwin-dl-preload
 
 if host_system == 'darwin'
-  libdarwin_dl_preload = shared_library(
-    'darwin-dl-preload',
+  libglib_mock_darwin_dl_preload = shared_library(
+    'glib-mock-darwin-dl-preload',
     'darwin-dl-preload.c',
     include_directories: '.',
     dependencies: [libglib_dep, libdl_dep],
@@ -34,17 +34,17 @@ if host_system == 'darwin'
   )
 
   if profile == 'installing'
-    dl_preload_path = libdir / 'lib' + libdarwin_dl_preload.name() + '.dylib'
+    dl_preload_path = libdir / 'lib' + libglib_mock_darwin_dl_preload.name() + '.dylib'
   elif profile == 'development'
-    dl_preload_path = libdarwin_dl_preload.full_path()
+    dl_preload_path = libglib_mock_darwin_dl_preload.full_path()
   endif
 endif
 
 # Build linux-dl-preload
 
 if host_system == 'linux'
-  liblinux_dl_preload = shared_library(
-    'linux-dl-preload',
+  libglib_mock_linux_dl_preload = shared_library(
+    'glib-mock-linux-dl-preload',
     'linux-dl-preload.c',
     include_directories: '.',
     dependencies: [libglib_dep, libdl_dep],
@@ -53,9 +53,9 @@ if host_system == 'linux'
   )
 
   if profile == 'installing'
-    dl_preload_path = libdir / 'lib' + liblinux_dl_preload.name() + '.so'
+    dl_preload_path = libdir / 'lib' + libglib_mock_linux_dl_preload.name() + '.so'
   elif profile == 'development'
-    dl_preload_path = liblinux_dl_preload.full_path()
+    dl_preload_path = libglib_mock_linux_dl_preload.full_path()
   endif
 endif
 
