@@ -109,12 +109,24 @@ mock_dyn_promise_element_clear (GMockDynPromise *promise)
 
 static gboolean committed = FALSE;
 
+/**
+ * g_mock_is_committed:
+ *
+ * Returns: Whether the framework has committed the mocks.
+ */
 gboolean
 g_mock_is_committed (void)
 {
   return committed;
 }
 
+/**
+ * g_mock_init:
+ * @argc: Address of the `argc` parameter of main()
+ * @argv: Address of the `argv` parameter of main()
+ *
+ * Initializes the GMock framework
+ */
 void
 g_mock_init (int *argc, char ***argv)
 {
@@ -219,6 +231,11 @@ g_mock_init (int *argc, char ***argv)
 #endif
 }
 
+/**
+ * g_mock_add_full:
+ * @func: Mock function pointer.
+ * @func_name: Target function name.
+ */
 void
 g_mock_add_full (gpointer func, const gchar *func_name)
 {
@@ -439,6 +456,13 @@ mock_LoadLibraryExW (const gunichar2 *path, HANDLE _unused, DWORD flags)
 }
 #endif
 
+/**
+ * g_mock_commit:
+ *
+ * Commits mock functions.
+ *
+ * Must be called after adding all the mock functions.
+ */
 void
 g_mock_commit (void)
 {
@@ -514,6 +538,11 @@ _g_mock_create_dyn_promise (const gchar *func_name, gpointer *out_real)
   g_array_append_val (_g_mock_dyn_promises, new_promise);
 }
 
+/**
+ * g_mock_get_real:
+ * @func_name: Target function name.
+ * @out_real: (out): Address to store the real target implementation.
+ */
 #if defined(G_OS_WIN32)
 G_NO_INLINE
 #endif

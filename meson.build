@@ -58,3 +58,7 @@ profile = get_option('profile')
 
 subdir('src')
 subdir('tests')
+
+if get_option('documentation')
+  subdir('doc')
+endif
