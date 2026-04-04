@@ -16,6 +16,7 @@ run_target(
     'generate',
     '-C', glib_mock_doc,
     glib_mock_gir,
-    '--output-dir', meson.current_build_dir(),
+    '--output-dir', '@OUTDIR@' / 'docgen',
+    '--no-namespace-dir',
   ],
 )
