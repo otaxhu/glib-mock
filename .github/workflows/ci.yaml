@@ -24,7 +24,8 @@ jobs:
           sudo apt-get update
           sudo apt-get upgrade
           sudo apt-get install -y meson ninja-build libglib2.0-dev \
-                                  gir1.2-glib-2.0-dev python3-pip
+                                  gobject-introspection libgirepository1.0-dev \
+                                  python3-pip
           pip3 install gi-docgen
       - name: Setup macOS Dependencies
         if: matrix.os == 'macos-latest'
@@ -42,7 +43,8 @@ jobs:
             mingw-w64-ucrt-x86_64-glib2
       - name: Build
         run: |
-          meson setup _build -Dprofile=development
+          meson setup _build -Dprofile=development \
+                             -Ddocumentation=${{ matrix.os == 'ubuntu-latest' }}
           ninja -C _build
       - name: Run Tests
         run: |
