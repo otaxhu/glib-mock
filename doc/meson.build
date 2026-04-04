@@ -9,7 +9,8 @@ glib_mock_doc = configure_file(
 
 gidocgen = find_program('gi-docgen')
 
-custom_target(
+run_target(
+  'doc',
   command: [
     gidocgen,
     'generate',
@@ -17,6 +18,4 @@ custom_target(
     glib_mock_gir,
     '--output-dir', meson.current_build_dir(),
   ],
-  output: 'glib-mock-doc',
-  build_by_default: true,
 )
