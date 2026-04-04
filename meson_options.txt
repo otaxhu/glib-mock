@@ -8,3 +8,10 @@ option(
   value: 'development',
   description: 'Build profile for glib-mock. "installing" points preloads to the final install path; "development" points them to the current builddir for local testing. If platform is other than Linux or macOS, then this option does nothing. If running tests, then you must set this to "development". If installing, then you must set this to "installing".',
 )
+
+option(
+  'documentation',
+  type: 'boolean',
+  value: true,
+  description: 'Generate documentation',
+)
