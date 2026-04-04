@@ -1,0 +1,73 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+    defaults:
+      run:
+        shell: ${{ matrix.os == 'windows-latest' && 'msys2 {0}' || 'bash' }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Setup Ubuntu Dependencies
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get upgrade
+          sudo apt-get install -y meson ninja-build libglib2.0-dev \
+                                  gir1.2-glib-2.0-dev python3-pip
+          pip3 install gi-docgen
+      - name: Setup macOS Dependencies
+        if: matrix.os == 'macos-latest'
+        run: brew install meson ninja glib gobject-introspection
+      - name: Setup Windows (MSYS2/UCRT64)
+        if: matrix.os == 'windows-latest'
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-meson
+            mingw-w64-ucrt-x86_64-ninja
+            mingw-w64-ucrt-x86_64-glib2
+      - name: Build
+        run: |
+          meson setup _build -Dprofile=development
+          ninja -C _build
+      - name: Run Tests
+        run: |
+          ninja -C _build test
+      - name: Generate Documentation
+        if: matrix.os == 'ubuntu-latest'
+        run: ninja -C _build doc
+      - name: Upload Docs Artifact
+        if: matrix.os == 'ubuntu-latest'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _build/docgen/
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    # Permissions for GH Pages
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
