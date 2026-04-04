@@ -83,6 +83,24 @@ libglib_mock = library(
   link_with: libglib_mock_priv,
 )
 
+if get_option('documentation')
+  gnome = import('gnome')
+
+  glib_mock_gir = gnome.generate_gir(
+    libglib_mock,
+    namespace: 'GMock',
+    nsversion: '0.1',
+    includes: ['GLib-2.0'],
+    sources: ['glib-mock.c', 'glib-mock.h'],
+    header: 'glib-mock.h',
+    identifier_prefix: 'GMock',
+    symbol_prefix: 'g_mock',
+    install: true,
+    fatal_warnings: true,
+  )
+  glib_mock_gir = glib_mock_gir[0]
+endif
+
 libglib_mock_dep = declare_dependency(
   include_directories: '.',
   dependencies: [libglib_dep, libdl_dep],

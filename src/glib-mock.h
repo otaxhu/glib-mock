@@ -40,6 +40,10 @@ g_mock_init (int *argc, char ***argv);
 void
 g_mock_add_full (gpointer func, const gchar *func_name);
 
+/**
+ * g_mock_add:
+ * @func_name: Mock function pointer, the name must match the target function.
+ */
 #define g_mock_add(func_name) \
   g_mock_add_full ((gpointer) (func_name), G_STRINGIFY (func_name))
 
@@ -83,6 +87,11 @@ _g_mock_create_dyn_promise (const gchar *func_name, gpointer *out_real);
 
 #endif
 
+/**
+ * G_MOCK_GET_REAL_SYSTEM:
+ * @func_name: Target function name.
+ * @system_out_real: Address to store the real target implementation.
+ */
 #define G_MOCK_GET_REAL_SYSTEM(func_name, system_out_real) \
   __attribute__((constructor)) static void G_PASTE (_g_mock_get_real_system_initializer_, __COUNTER__) (void) \
   { \

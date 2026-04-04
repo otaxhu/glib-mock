@@ -1,0 +1,18 @@
+[library]
+namespace = "GMock"
+version = "@GLIB_MOCK_VERSION@"
+browse_url = "https://gitlab.gnome.org/otaxhu/glib-mock/"
+repository_url = "https://gitlab.gnome.org/otaxhu/glib-mock.git"
+authors = "Oscar Pernia"
+license = "LGPL-2.1-or-later"
+description = "Mocking framework for unit testing"
+dependencies = [ "GLib-2.0" ]
+devhelp = true
+search_index = true
+
+[theme]
+name = "basic"
+show_index_summary = true
+
+[source-location]
+base_url = "https://gitlab.gnome.org/otaxhu/glib-mock/-/blob/main/"
