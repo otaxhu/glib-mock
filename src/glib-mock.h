@@ -20,7 +20,7 @@
 
 #pragma once
 
-#include <glib-2.0/glib.h>
+#include <glib.h>
 
 #if defined(G_OS_UNIX)
 #define __USE_GNU
