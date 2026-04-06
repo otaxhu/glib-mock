@@ -84,7 +84,7 @@ After you succesfully installed the library, you can run tests by doing the foll
 | Feature | Linux | macOS | Windows |
 | :-----: | ----- | ----- | ------- |
 | Interposition method | Native interposition by exporting symbol at compilation time (user just writes a regular exported function) | **Same as in Linux** | IAT / `GetProcAddress` runtime patching |
-| Mock load-time imports | ✅ | ✅ | ✅ |
+| Mock load-time imports | ✅ | ⚠️ Partially supported (Per testing results on GitHub CI, it cannot mock load-time imported functions on recent macOS versions, though per testing results on a personal Mac with macOS Big Sur (11.0), it worked completely fine) | ✅ |
 | Mock run-time imports | ✅ (via `dlsym`) | ✅ (via `dlsym`) | ✅ (via `GetProcAddress`, or `dlsym` if using Cygwin) |
 
   ### Platform specifics
