@@ -5,14 +5,22 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
 jobs:
   build:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     name: Build on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, macos-latest, ubuntu-latest]
+        os: [windows-latest, macos-15-intel, macos-latest, ubuntu-latest]
     defaults:
       run:
         shell: ${{ matrix.os == 'windows-latest' && 'msys2 {0}' || 'bash' }}
@@ -28,7 +36,7 @@ jobs:
                                   python3-pip
           pip3 install gi-docgen
       - name: Setup macOS Dependencies
-        if: matrix.os == 'macos-latest'
+        if: startsWith(matrix.os, 'macos-')
         run: brew install meson ninja glib gobject-introspection
       - name: Setup Windows (MSYS2/UCRT64)
         if: matrix.os == 'windows-latest'
@@ -57,19 +65,7 @@ jobs:
         uses: actions/upload-pages-artifact@v3
         with:
           path: _build/docgen/
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    # Permissions for GH Pages
-    permissions:
-      contents: read
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
       - name: Deploy to GitHub Pages
+        if: matrix.os == 'ubuntu-latest'
         id: deployment
         uses: actions/deploy-pages@v4

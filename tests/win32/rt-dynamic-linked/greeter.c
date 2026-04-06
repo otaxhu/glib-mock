@@ -1,7 +1,7 @@
 #include "greeter.h"
 #include <windows.h>
 
-#include <glib-2.0/glib.h>
+#include <glib.h>
 
 void greet (FILE *file)
 {
