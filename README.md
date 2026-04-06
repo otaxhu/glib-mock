@@ -73,6 +73,10 @@ After you succesfully installed the library, you can run tests by doing the foll
   )
   ```
 
+## Documentation
+
+- [API Reference](https://otaxhu.github.io/glib-mock)
+
 ## Technical requirements
 
 - ### Dynamic linking only
