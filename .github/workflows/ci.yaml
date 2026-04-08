@@ -12,9 +12,6 @@ permissions:
 
 jobs:
   build:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     name: Build on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
@@ -33,11 +30,11 @@ jobs:
           sudo apt-get upgrade
           sudo apt-get install -y meson ninja-build libglib2.0-dev \
                                   gobject-introspection libgirepository1.0-dev \
-                                  python3-pip
+                                  python3-pip gcovr
           pip3 install gi-docgen
       - name: Setup macOS Dependencies
         if: startsWith(matrix.os, 'macos-')
-        run: brew install meson ninja glib gobject-introspection
+        run: brew install meson ninja glib gobject-introspection gcovr
       - name: Setup Windows (MSYS2/UCRT64)
         if: matrix.os == 'windows-latest'
         uses: msys2/setup-msys2@v2
@@ -49,14 +46,26 @@ jobs:
             mingw-w64-ucrt-x86_64-meson
             mingw-w64-ucrt-x86_64-ninja
             mingw-w64-ucrt-x86_64-glib2
+            mingw-w64-ucrt-x86_64-gcovr
       - name: Build
         run: |
           meson setup _build -Dprofile=development \
                              -Ddocumentation=${{ matrix.os == 'ubuntu-latest' }}
+                             -Db_coverage=true
           ninja -C _build
       - name: Run Tests
         run: |
           ninja -C _build test
+      - name: Generate Coverage Reports
+        run: |
+          ninja -C _build coverage-xml
+      - name: Upload ${{matrix.os}} Reports to Coveralls
+        uses: coverallsapp/github-action@v2
+        with:
+          file: _build/meson-logs/coverage.xml
+          format: cobertura
+          parallel: true
+          flag-name: run-${{ matrix.os }}
       - name: Generate Documentation
         if: matrix.os == 'ubuntu-latest'
         run: ninja -C _build doc
@@ -65,7 +74,27 @@ jobs:
         uses: actions/upload-pages-artifact@v3
         with:
           path: _build/docgen/
+
+  deploy:
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
       - name: Deploy to GitHub Pages
-        if: matrix.os == 'ubuntu-latest'
         id: deployment
         uses: actions/deploy-pages@v4
+
+  finish:
+    needs: [build, deploy]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Coveralls Finished
+        uses: coverallsapp/github-action@v2
+        with:
+          parallel-finished: true
+          # NOTE: Keep in sync with strategy.matrix.os from build step
+          carryforward: "run-ubuntu-latest,run-macos-latest,run-macos-15-intel,run-windows-latest"
