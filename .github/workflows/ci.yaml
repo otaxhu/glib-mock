@@ -50,7 +50,7 @@ jobs:
       - name: Build
         run: |
           meson setup _build -Dprofile=development \
-                             -Ddocumentation=${{ matrix.os == 'ubuntu-latest' }}
+                             -Ddocumentation=${{ matrix.os == 'ubuntu-latest' }} \
                              -Db_coverage=true
           ninja -C _build
       - name: Run Tests
