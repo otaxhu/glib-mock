@@ -1,5 +1,11 @@
 # GLib Mock (Mocking framework for unit testing)
 
+<div>
+  <a href='https://coveralls.io/github/otaxhu/glib-mock?branch=main'>
+    <img src='https://coveralls.io/repos/github/otaxhu/glib-mock/badge.svg?branch=main' alt='Coverage Status' />
+  </a>
+</div>
+
 GLib Mock is a framework for mocking non-GObject C functions, aiming to be added to the GLib Testing framework as the standardized way to create mocks.
 
 ## Features
