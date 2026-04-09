@@ -9,6 +9,7 @@ static void
 test_unmocked (void)
 {
   g_assert_nonnull (real_my_fwrite);
+  gpointer prev_real_my_fwrite = real_my_fwrite;
 
   gpointer mock_my_fwrite = dlsym (RTLD_DEFAULT, "my_fwrite");
   g_assert_null (mock_my_fwrite);
@@ -19,6 +20,7 @@ test_unmocked (void)
   mock_my_fwrite = dlsym (libmy_fwrite, "my_fwrite");
   g_assert_nonnull (mock_my_fwrite);
 
+  g_assert_true (prev_real_my_fwrite != real_my_fwrite);
   g_assert_true (real_my_fwrite == mock_my_fwrite);
 
   g_assert_true (dlclose (libmy_fwrite) == 0);
