@@ -10,6 +10,7 @@ static void
 test_unmocked (void)
 {
   g_assert_nonnull (real_my_fwrite);
+  gpointer prev_real_my_fwrite = real_my_fwrite;
 
   const gchar *my_fwrite_path_utf8 = g_getenv ("LIB_MY_FWRITE_PATH");
   g_assert_nonnull (my_fwrite_path_utf8);
@@ -24,6 +25,7 @@ test_unmocked (void)
   gpointer mock_my_fwrite = GetProcAddress (libmy_fwrite, "my_fwrite");
   g_assert_nonnull (mock_my_fwrite);
 
+  g_assert_true (prev_real_my_fwrite != real_my_fwrite);
   g_assert_true (mock_my_fwrite == real_my_fwrite);
 
   g_assert_true (FreeLibrary (libmy_fwrite) != FALSE);
