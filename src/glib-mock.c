@@ -262,10 +262,6 @@ patch_iat (HMODULE module)
 {
   g_return_if_fail (module != NULL);
 
-  /* Early return if there is nothing to patch */
-  if G_UNLIKELY (!_g_mock_entries)
-    return;
-
   WCHAR module_name_utf16[MAX_PATH + 1];
   DWORD n_read = GetModuleFileName (module, (WCHAR *) &module_name_utf16, MAX_PATH + 1);
   if (n_read > 0 && n_read < MAX_PATH + 1)
@@ -353,10 +349,6 @@ patch_iat (HMODULE module)
 static inline void
 patch_all_iat (void)
 {
-  /* Early return if there is nothing to patch */
-  if G_UNLIKELY (!_g_mock_entries)
-    return;
-
   DWORD modules_size, modules_size2;
   HANDLE process = GetCurrentProcess ();
   if (!process)
@@ -456,48 +448,6 @@ mock_LoadLibraryExW (const gunichar2 *path, HANDLE _unused, DWORD flags)
 }
 #endif
 
-/**
- * g_mock_commit:
- *
- * Commits mock functions.
- *
- * Must be called after adding all the mock functions.
- */
-void
-g_mock_commit (void)
-{
-  if G_UNLIKELY (g_mock_is_committed ())
-    return;
-
-#if defined(G_PLATFORM_WIN32)
-  if G_LIKELY (_g_mock_entries)
-    {
-      g_mock_add_full (mock_GetProcAddress, "GetProcAddress");
-      g_mock_get_real ("GetProcAddress", &real_GetProcAddress);
-
-      g_mock_add_full (mock_LoadLibraryA, "LoadLibraryA");
-      g_mock_get_real ("LoadLibraryA", &real_LoadLibraryA);
-
-      g_mock_add_full (mock_LoadLibraryW, "LoadLibraryW");
-      g_mock_get_real ("LoadLibraryW", &real_LoadLibraryW);
-
-      g_mock_add_full (mock_LoadLibraryExA, "LoadLibraryExA");
-      g_mock_get_real ("LoadLibraryExA", &real_LoadLibraryExA);
-
-      g_mock_add_full (mock_LoadLibraryExW, "LoadLibraryExW");
-      g_mock_get_real ("LoadLibraryExW", &real_LoadLibraryExW);
-    }
-#endif
-
-  committed = TRUE;
-
-#if defined(G_PLATFORM_WIN32)
-  patch_all_iat ();
-#elif defined(__linux__)
-  _g_mock_patch_got_linux ();
-#endif
-}
-
 G_GNUC_NORETURN
 static void
 real_not_found_dynamic (void)
@@ -513,6 +463,53 @@ real_not_found_dynamic (void)
 #else
   g_error ("Attempted to call a function whose real implementation could not be resolved. "
            "Check the testing target's calls to dlopen() to see if they are working correctly.");
+#endif
+}
+
+/**
+ * g_mock_commit:
+ *
+ * Commits mock functions.
+ *
+ * Must be called after adding all the mock functions.
+ */
+void
+g_mock_commit (void)
+{
+  if G_UNLIKELY (g_mock_is_committed ())
+    return;
+
+#if defined(G_PLATFORM_WIN32)
+  g_mock_add_full (mock_GetProcAddress, "GetProcAddress");
+  g_mock_get_real ("GetProcAddress", &real_GetProcAddress);
+  g_assert ((gpointer) *real_GetProcAddress != (gpointer) real_not_found_dynamic);
+
+  g_mock_add_full (mock_LoadLibraryA, "LoadLibraryA");
+  g_mock_get_real ("LoadLibraryA", &real_LoadLibraryA);
+  g_assert ((gpointer) *real_LoadLibraryA != (gpointer) real_not_found_dynamic);
+
+  g_mock_add_full (mock_LoadLibraryW, "LoadLibraryW");
+  g_mock_get_real ("LoadLibraryW", &real_LoadLibraryW);
+  g_assert ((gpointer) *real_LoadLibraryW != (gpointer) real_not_found_dynamic);
+
+  g_mock_add_full (mock_LoadLibraryExA, "LoadLibraryExA");
+  g_mock_get_real ("LoadLibraryExA", &real_LoadLibraryExA);
+  g_assert ((gpointer) *real_LoadLibraryExA != (gpointer) real_not_found_dynamic);
+
+  g_mock_add_full (mock_LoadLibraryExW, "LoadLibraryExW");
+  g_mock_get_real ("LoadLibraryExW", &real_LoadLibraryExW);
+  g_assert ((gpointer) *real_LoadLibraryExW != (gpointer) real_not_found_dynamic);
+#elif defined(__linux__)
+  g_mock_get_real ("dlsym", &_g_mock_real_dlsym);
+  g_assert ((gpointer) *_g_mock_real_dlsym != (gpointer) real_not_found_dynamic);
+#endif
+
+  committed = TRUE;
+
+#if defined(G_PLATFORM_WIN32)
+  patch_all_iat ();
+#elif defined(__linux__)
+  _g_mock_patch_got_linux ();
 #endif
 }
 
