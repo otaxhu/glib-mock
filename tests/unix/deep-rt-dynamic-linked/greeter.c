@@ -12,14 +12,9 @@ greet (FILE *file)
   if (!dyn_my_fwrite)
     {
       libmy_fwrite = dlopen (g_getenv ("LIB_MY_FWRITE_PATH"), RTLD_LAZY);
-      if (!libmy_fwrite)
-        g_error ("dlopen failed to open libmy-fwrite: dlerror returned: %s",
-                 dlerror ());
-
+      g_assert_nonnull (libmy_fwrite);
       dyn_my_fwrite = dlsym (libmy_fwrite, "my_fwrite");
-      if (!dyn_my_fwrite)
-        g_error ("dlsym failed to get my_fwrite: dlerror returned: %s",
-                 dlerror ());
+      g_assert_nonnull (dyn_my_fwrite);
     }
 
   dyn_my_fwrite ("Greetings!\n", 1, sizeof ("Greetings!\n") - 1, file);
