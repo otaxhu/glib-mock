@@ -205,9 +205,6 @@ phdr_patch_cb (struct dl_phdr_info *info, size_t size, gpointer data)
               g_error ("Failed to hook dlsym");
             }
 
-          if (!_g_mock_real_dlsym)
-            _g_mock_real_dlsym = *got;
-
           *got = mock_dlsym_asm;
 
           /* FIXME: Recover the original mprotect flags */
@@ -226,7 +223,5 @@ void
 _g_mock_patch_got_linux (void)
 {
   dl_iterate_phdr (phdr_patch_cb, NULL);
-  if (!_g_mock_real_dlsym)
-    g_error ("Couldn't patch dlsym");
 }
 #endif
