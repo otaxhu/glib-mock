@@ -12,6 +12,6 @@ option(
 option(
   'documentation',
   type: 'boolean',
-  value: true,
+  value: false,
   description: 'Generate documentation',
 )
