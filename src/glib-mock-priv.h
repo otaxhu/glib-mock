@@ -43,6 +43,9 @@ _g_mock_dyn_promise_resolve (const gchar *func_name, gpointer real_func);
 gpointer
 _g_mock_entry_find_by_name (const gchar *func_name);
 
+int
+_g_mock_entries_sort_func (const GMockEntry *a, const GMockEntry *b);
+
 #if defined(__linux__)
 extern gpointer (*_g_mock_real_dlsym) (gpointer handle, const gchar *name);
 
