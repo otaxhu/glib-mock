@@ -1,4 +1,8 @@
-project('glib-mock', 'c')
+project(
+  'glib-mock',
+  'c',
+  version: '0.1.0',
+)
 
 pkg = import('pkgconfig')
 
