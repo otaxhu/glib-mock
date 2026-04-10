@@ -59,19 +59,30 @@ _g_mock_dyn_promise_resolve (const gchar *func_name, gpointer real_func)
       }
 }
 
+int
+_g_mock_entries_sort_func (const GMockEntry *a, const GMockEntry *b)
+{
+  return g_strcmp0 (a->func_name, b->func_name);
+}
+
 gpointer
 _g_mock_entry_find_by_name (const gchar *func_name)
 {
   g_return_val_if_fail (func_name != NULL, NULL);
 
-  if G_LIKELY (_g_mock_entries)
-    for (guint i = 0; i < _g_mock_entries->len; i++)
-      {
-        GMockEntry *entry = &g_array_index (_g_mock_entries, GMockEntry, i);
+  GMockEntry entry = {
+    .func_name = func_name,
+  };
+  guint out_index;
 
-        if (g_strcmp0 (func_name, entry->func_name) == 0)
-          return entry->func;
-      }
+  if (G_LIKELY (_g_mock_entries) &&
+      g_array_binary_search (_g_mock_entries,
+                             &entry,
+                             (GCompareFunc) _g_mock_entries_sort_func,
+                             &out_index))
+    {
+      return (&g_array_index (_g_mock_entries, GMockEntry, out_index))->func;
+    }
 
   return NULL;
 }
