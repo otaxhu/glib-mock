@@ -12,6 +12,13 @@ option(
 option(
   'documentation',
   type: 'boolean',
-  value: true,
+  value: false,
   description: 'Generate documentation',
+)
+
+option(
+  'tests',
+  type: 'boolean',
+  value: true,
+  description: 'Build tests',
 )

@@ -61,7 +61,10 @@ libdir = get_option('prefix') / get_option('libdir')
 profile = get_option('profile')
 
 subdir('src')
-subdir('tests')
+
+if get_option('tests')
+  subdir('tests')
+endif
 
 if get_option('documentation')
   subdir('doc')
