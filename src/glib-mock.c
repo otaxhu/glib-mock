@@ -107,6 +107,41 @@ mock_dyn_promise_element_clear (GMockDynPromise *promise)
   g_free (promise->func_name);
 }
 
+static inline void
+mock_entries_remove_duplicates (void)
+{
+  if (_g_mock_entries->len <= 1)
+    return;
+
+  /* FIXME: Quadratic time complexity O(n^2) */
+
+  for (guint i = 0; i < _g_mock_entries->len; i++)
+    {
+      /* First-defined strategy, prioritize first user-defined mocks rather than
+       * others deep in the mock hierarchy (user knows what he's doing at that point)
+       *
+       * This allows for users to ultimately override our mocks, or another mocks defined
+       * by some other library that uses us.
+       */
+      GMockEntry *first = &g_array_index (_g_mock_entries, GMockEntry, i);
+
+      for (guint j = i + 1; j < _g_mock_entries->len; j++)
+        {
+          GMockEntry *duplicate = &g_array_index (_g_mock_entries, GMockEntry, j);
+
+          if (g_strcmp0 (first->func_name, duplicate->func_name) == 0)
+            {
+              g_debug ("Mock function <%s> redefined. Ignoring subsequent definitions.",
+                       first->func_name);
+
+              g_array_remove_index (_g_mock_entries, j);
+
+              j--;
+            }
+        }
+    }
+}
+
 static gboolean committed = FALSE;
 
 /**
@@ -505,6 +540,12 @@ g_mock_commit (void)
 #endif
 
   committed = TRUE;
+
+  if G_LIKELY (_g_mock_entries)
+    {
+      mock_entries_remove_duplicates ();
+      g_array_sort (_g_mock_entries, (GCompareFunc) _g_mock_entries_sort_func);
+    }
 
 #if defined(G_PLATFORM_WIN32)
   patch_all_iat ();
