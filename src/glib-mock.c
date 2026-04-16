@@ -259,7 +259,7 @@ g_mock_init (int *argc, char ***argv)
 #if defined(__APPLE__) || defined(__linux__)
   if (needs_reexec)
     {
-      execv ((*argv)[0], *argv);
+      execvp ((*argv)[0], *argv);
 
       g_error ("Couldn't re-exec the program");
     }
