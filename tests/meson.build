@@ -1,6 +1,11 @@
 execv_bug_env = environment()
 execv_bug_env.prepend('PATH', meson.current_build_dir())
 
+if host_system == 'windows' or host_system == 'cygwin'
+  # Adds to PATH the location of libglib-mock.dll
+  execv_bug_env.prepend('PATH', fs.parent(libglib_mock.full_path()))
+endif
+
 execv_bug = executable(
   'execv-bug',
   'execv-bug.c',
@@ -12,6 +17,7 @@ test(
   find_program('env'),
   args: [execv_bug.name()],
   env: execv_bug_env,
+  depends: [libglib_mock],
 )
 
 libmy_fwrite = shared_library(

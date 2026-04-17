@@ -5,6 +5,7 @@ project(
 )
 
 pkg = import('pkgconfig')
+fs = import('fs')
 
 cc = meson.get_compiler('c')
 
