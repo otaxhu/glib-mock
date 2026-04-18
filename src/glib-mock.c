@@ -37,6 +37,7 @@
 #if defined(G_PLATFORM_WIN32)
 #include <windows.h>
 #include <psapi.h>
+#include <Shlobj.h>
 #endif
 
 /* {{{ _ReturnAddress implementation copied from:
@@ -306,14 +307,37 @@ patch_iat (HMODULE module)
        * forwarded export, please add it here.
        */
 
-      gchar *problematic_dlls[] = {
+      static gsize problematic_dlls_initialized;
+      static gchar *problematic_dlls[] = {
         /* Cannot patch kernel32's IAT, it's full of trampolines that jumps to
           * its IAT entries, if we do it, then we would have infinite recursion problems.
           *
           * See: https://gitlab.gnome.org/otaxhu/glib-mock/-/merge_requests/5#note_2724536
           */
-        "c:\\windows\\system32\\kernel32.dll",
+        "kernel32.dll",
       };
+
+      if (g_once_init_enter (&problematic_dlls_initialized))
+        {
+          /* Concat the System32 path to the dll names */
+
+          WCHAR *system_path_utf16;
+          if (FAILED (SHGetKnownFolderPath (&FOLDERID_System, 0, NULL, &system_path_utf16)))
+            G_WIN32_API_FAILED_NO_CODE (SHGetKnownFolderPath);
+
+          gchar *system_path_utf8 = g_utf16_to_utf8 (system_path_utf16, -1, NULL, NULL, NULL);
+          CoTaskMemFree (system_path_utf16);
+          g_assert (system_path_utf8 != NULL);
+
+          for (size_t i = 0; i < G_N_ELEMENTS (problematic_dlls); i++)
+            {
+              /* Leak the string on purpose, it may be used later by mock_GetProcAddress */
+              problematic_dlls[i] = g_strconcat (system_path_utf8, "\\", problematic_dlls[i], NULL);
+            }
+
+          g_free (system_path_utf8);
+          g_once_init_leave (&problematic_dlls_initialized, 1);
+        }
 
       gchar *module_name_utf8 = g_utf16_to_utf8 (module_name_utf16, -1, NULL, NULL, NULL);
       g_assert (module_name_utf8 != NULL);
