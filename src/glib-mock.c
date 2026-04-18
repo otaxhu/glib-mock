@@ -108,6 +108,12 @@ mock_dyn_promise_element_clear (GMockDynPromise *promise)
   g_free (promise->func_name);
 }
 
+static void
+mock_entry_element_clear (GMockEntry *entry)
+{
+  g_free (entry->func_name);
+}
+
 static inline void
 mock_entries_remove_duplicates (void)
 {
@@ -282,7 +288,11 @@ g_mock_add_full (gpointer func, const gchar *func_name)
   g_return_if_fail (func_name != NULL && func_name[0] != '\0');
 
   if G_UNLIKELY (!_g_mock_entries)
-    _g_mock_entries = g_array_sized_new (FALSE, FALSE, sizeof (GMockEntry), 1);
+    {
+      _g_mock_entries = g_array_sized_new (FALSE, FALSE, sizeof (GMockEntry), 1);
+      g_array_set_clear_func (_g_mock_entries,
+                              (GDestroyNotify) mock_entry_element_clear);
+    }
 
   GMockEntry entry = {
     .func = func,

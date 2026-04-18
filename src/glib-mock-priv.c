@@ -71,7 +71,7 @@ _g_mock_entry_find_by_name (const gchar *func_name)
   g_return_val_if_fail (func_name != NULL, NULL);
 
   GMockEntry entry = {
-    .func_name = func_name,
+    .func_name = (gchar *) func_name,
   };
   guint out_index;
 
