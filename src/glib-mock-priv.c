@@ -38,29 +38,51 @@ _g_mock_dyn_promise_resolve (const gchar *func_name, gpointer real_func)
   g_return_if_fail (func_name != NULL);
   g_return_if_fail (real_func != NULL);
 
-  if (_g_mock_dyn_promises)
-    for (guint i = 0; i < _g_mock_dyn_promises->len; i++)
-      {
-        GMockDynPromise *promise = &g_array_index (_g_mock_dyn_promises, GMockDynPromise, i);
+  GMockDynPromise promise = {
+    .func_name = (gchar *) func_name,
+  };
+  guint out_index;
 
-        if (g_strcmp0 (promise->func_name, func_name) == 0)
-          {
-            *promise->user_out_real = real_func;
-            g_array_remove_index (_g_mock_dyn_promises, i);
-            if (i > 0)
-              i--;
-          }
-
-        if (_g_mock_dyn_promises->len == 0)
-          {
-            g_clear_pointer (&_g_mock_dyn_promises, g_array_unref);
+  if (_g_mock_dyn_promises &&
+      g_array_binary_search (_g_mock_dyn_promises,
+                             &promise,
+                             (GCompareFunc) _g_mock_dyn_promises_sort_func,
+                             &out_index))
+    {
+      /* Find first occurance */
+      for (; out_index > 0; out_index--)
+        {
+          GMockDynPromise *prev = &g_array_index (_g_mock_dyn_promises, GMockDynPromise, out_index - 1);
+          if (_g_mock_dyn_promises_sort_func (prev, &promise) != 0)
             break;
-          }
-      }
+        }
+
+      /* Iterate from first occurance onwards, up until it finds a different element. */
+      while (out_index < _g_mock_dyn_promises->len)
+        {
+          GMockDynPromise *found = &g_array_index (_g_mock_dyn_promises, GMockDynPromise, out_index);
+          if (_g_mock_dyn_promises_sort_func (found, &promise) != 0)
+            break;
+
+          *found->user_out_real = real_func;
+          g_array_remove_index (_g_mock_dyn_promises, out_index);
+        }
+
+      if (_g_mock_dyn_promises->len == 0)
+        {
+          g_clear_pointer (&_g_mock_dyn_promises, g_array_unref);
+        }
+    }
 }
 
 int
 _g_mock_entries_sort_func (const GMockEntry *a, const GMockEntry *b)
+{
+  return g_strcmp0 (a->func_name, b->func_name);
+}
+
+int
+_g_mock_dyn_promises_sort_func (const GMockDynPromise *a, const GMockDynPromise *b)
 {
   return g_strcmp0 (a->func_name, b->func_name);
 }

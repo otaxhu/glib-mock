@@ -581,6 +581,11 @@ g_mock_commit (void)
       g_array_sort (_g_mock_entries, (GCompareFunc) _g_mock_entries_sort_func);
     }
 
+  if (_g_mock_dyn_promises)
+    {
+      g_array_sort (_g_mock_dyn_promises, (GCompareFunc) _g_mock_dyn_promises_sort_func);
+    }
+
 #if defined(G_PLATFORM_WIN32)
   patch_all_iat ();
 #elif defined(__linux__)
