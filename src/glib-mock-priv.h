@@ -25,7 +25,7 @@
 typedef struct
 {
   gpointer func;
-  const gchar *func_name;
+  gchar *func_name;
 } GMockEntry;
 
 typedef struct
