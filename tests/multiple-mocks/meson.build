@@ -26,6 +26,7 @@ test(
       '-Wl,-L' + meson.current_build_dir(),
       '-Wl,--no-as-needed',
       '-Wl,-lfoo',
+      '-Wl,--no-as-needed',
       '-Wl,-lbar',
       '-Wl,--as-needed',
     ],
