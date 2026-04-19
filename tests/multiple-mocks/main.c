@@ -31,6 +31,10 @@ test_multiple_mocks (void)
 int
 main (int argc, char **argv)
 {
+  /* Force linkage against libfoo and libbar */
+  foo_needed = 0;
+  bar_needed = 0;
+
   g_mock_init (&argc, &argv);
 
   g_mock_add (foo);
