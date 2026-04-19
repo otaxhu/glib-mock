@@ -10,6 +10,18 @@ libbar = shared_library(
   include_directories: '.',
 )
 
+if host_system == 'windows' or host_system == 'cygwin'
+  multiple_mocks_link_args = [] # empty
+else
+  multiple_mocks_link_args = [
+    '-Wl,--no-as-needed',
+    '-L' + meson.current_build_dir(),
+    '-lfoo',
+    '-lbar',
+    '-Wl,--as-needed',
+  ]
+endif
+
 test(
   'multiple-mocks',
   executable(
@@ -22,12 +34,6 @@ test(
     #
     # This arguments forces the linkage against libfoo.so and libbar.so objects,
     # which is needed in order to g_mock_get_real to work properly for this test
-    link_args: [
-      '-Wl,--no-as-needed',
-      '-L' + meson.current_build_dir(),
-      '-lfoo',
-      '-lbar',
-      '-Wl,--as-needed',
-    ],
+    link_args: multiple_mocks_link_args,
   ),
 )
