@@ -23,10 +23,9 @@ test(
     # This arguments forces the linkage against libfoo.so and libbar.so objects,
     # which is needed in order to g_mock_get_real to work properly for this test
     link_args: [
+      '-Wl,--no-as-needed',
       '-Wl,-L' + meson.current_build_dir(),
-      '-Wl,--no-as-needed',
       '-Wl,-lfoo',
-      '-Wl,--no-as-needed',
       '-Wl,-lbar',
       '-Wl,--as-needed',
     ],
