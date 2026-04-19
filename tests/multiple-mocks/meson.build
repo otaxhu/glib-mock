@@ -24,9 +24,9 @@ test(
     # which is needed in order to g_mock_get_real to work properly for this test
     link_args: [
       '-Wl,--no-as-needed',
-      '-Wl,-L' + meson.current_build_dir(),
-      '-Wl,-lfoo',
-      '-Wl,-lbar',
+      '-L' + meson.current_build_dir(),
+      '-lfoo',
+      '-lbar',
       '-Wl,--as-needed',
     ],
   ),
