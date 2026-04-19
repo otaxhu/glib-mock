@@ -20,7 +20,7 @@ if host_system == 'windows' or host_system == 'cygwin'
     # This arguments forces the linkage against libfoo.dll and libbar.dll,
     # which is needed in order to g_mock_get_real to work properly for this test
     link_early_args: [
-      '-Wl,--no-as-needed',
+      '-Wl,--whole-archive',
     ],
   )
 else
