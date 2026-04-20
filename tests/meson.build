@@ -26,6 +26,7 @@ libmy_fwrite = shared_library(
 )
 
 subdir('wrap-function')
+subdir('multiple-mocks')
 
 if host_system == 'linux' or host_system == 'darwin'
   subdir('unix')
