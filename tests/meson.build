@@ -25,6 +25,18 @@ libmy_fwrite = shared_library(
   'my-fwrite.c',
 )
 
+libfoo = shared_library(
+  'foo',
+  'foo.c',
+  include_directories: '.',
+)
+
+libbar = shared_library(
+  'bar',
+  'bar.c',
+  include_directories: '.',
+)
+
 subdir('wrap-function')
 subdir('multiple-mocks')
 

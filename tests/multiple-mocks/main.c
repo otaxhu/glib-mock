@@ -3,8 +3,8 @@
 #include "foo.h"
 #include "bar.h"
 
-const char * (*real_foo) (void);
-const char * (*real_bar) (void);
+static const char * (*real_foo) (void);
+static const char * (*real_bar) (void);
 
 const char *
 foo (void)

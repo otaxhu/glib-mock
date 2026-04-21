@@ -1,15 +1,3 @@
-libfoo = shared_library(
-  'foo',
-  'foo.c',
-  include_directories: '.',
-)
-
-libbar = shared_library(
-  'bar',
-  'bar.c',
-  include_directories: '.',
-)
-
 test(
   'multiple-mocks',
   executable(
