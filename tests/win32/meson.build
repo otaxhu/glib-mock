@@ -25,5 +25,18 @@ test(
   },
 )
 
+test(
+  'repeated-multiple-get-real-rt-dynamic-linked',
+  executable(
+    'repeated-multiple-get-real-rt-dynamic-linked',
+    'repeated-multiple-get-real-rt-dynamic-linked.c',
+    include_directories: '.',
+    dependencies: libglib_mock_dep,
+  ),
+  env: {
+    'LIB_FOO_PATH': libfoo.full_path(),
+  },
+)
+
 subdir('rt-dynamic-linked')
 subdir('deep-rt-dynamic-linked')
