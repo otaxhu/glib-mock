@@ -9,7 +9,7 @@
 static const char (*real_foo) (void);
 static const char (*real_bar) (void);
 
-void
+static void
 test_multiple_get_real_rt_dynamic (void)
 {
   g_assert_nonnull (real_foo);
